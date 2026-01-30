@@ -1,5 +1,6 @@
 package com.rumoaopratico.controller;
 
+import com.rumoaopratico.dto.request.AdminUpdateUserRequest;
 import com.rumoaopratico.dto.request.ImportQuestionsRequest;
 import com.rumoaopratico.dto.response.ImportResultResponse;
 import com.rumoaopratico.dto.response.UserResponse;
@@ -46,5 +47,14 @@ public class AdminController {
     public ResponseEntity<Void> clearUserHistory(@PathVariable Long userId) {
         adminService.clearUserHistory(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/users/{userId}")
+    @Operation(summary = "Update user role and/or status (enable/disable)")
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long userId,
+            @RequestBody AdminUpdateUserRequest request) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(adminService.updateUser(currentUserId, userId, request));
     }
 }

@@ -52,6 +52,10 @@ public class AuthService {
             throw new UnauthorizedException("Invalid email or password");
         }
 
+        if (user.getEnabled() != null && !user.getEnabled()) {
+            throw new UnauthorizedException("Account is disabled. Contact an administrator.");
+        }
+
         log.info("User logged in: {}", user.getEmail());
         return generateAuthResponse(user);
     }
@@ -71,6 +75,10 @@ public class AuthService {
         Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
+
+        if (user.getEnabled() != null && !user.getEnabled()) {
+            throw new UnauthorizedException("Account is disabled. Contact an administrator.");
+        }
 
         return generateAuthResponse(user);
     }

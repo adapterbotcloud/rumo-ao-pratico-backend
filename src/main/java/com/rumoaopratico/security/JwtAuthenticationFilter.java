@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.rumoaopratico.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
@@ -24,6 +25,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -37,6 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
                     String email = jwtTokenProvider.getEmailFromToken(jwt);
                     String role = jwtTokenProvider.getRoleFromToken(jwt);
+
+                    // Check if user is still enabled
+                    var userOpt = userRepository.findById(userId);
+                    if (userOpt.isEmpty() || (userOpt.get().getEnabled() != null && !userOpt.get().getEnabled())) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
 
                     UserPrincipal principal = new UserPrincipal(userId, email, role != null ? role : "USER");
 

@@ -17,6 +17,7 @@ public class UserResponse {
     private String name;
     private String email;
     private String role;
+    private Boolean enabled;
     private LocalDateTime createdAt;
 
     public static UserResponse from(User user) {
@@ -25,6 +26,7 @@ public class UserResponse {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole() != null ? user.getRole().name() : "USER")
+                .enabled(user.getEnabled())
                 .createdAt(user.getCreatedAt())
                 .build();
     }
