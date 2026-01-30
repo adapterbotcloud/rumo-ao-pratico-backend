@@ -127,7 +127,29 @@ public class QuestionService {
                 .options(new ArrayList<>())
                 .build();
 
-        if (request.getOptions() != null) {
+        if (request.getType() == QuestionType.TRUE_FALSE) {
+            // Auto-create Verdadeiro/Falso options based on correctAnswer
+            boolean correctIsTrue = Boolean.TRUE.equals(request.getCorrectAnswer());
+            question.addOption(QuestionOption.builder()
+                    .text("Verdadeiro")
+                    .isCorrect(correctIsTrue)
+                    .build());
+            question.addOption(QuestionOption.builder()
+                    .text("Falso")
+                    .isCorrect(!correctIsTrue)
+                    .build());
+        } else if (request.getType() == QuestionType.COMMENTED_PHRASE) {
+            // Auto-create Correta/Incorreta options based on correctAnswer
+            boolean correctIsTrue = Boolean.TRUE.equals(request.getCorrectAnswer());
+            question.addOption(QuestionOption.builder()
+                    .text("Verdadeiro")
+                    .isCorrect(correctIsTrue)
+                    .build());
+            question.addOption(QuestionOption.builder()
+                    .text("Falso")
+                    .isCorrect(!correctIsTrue)
+                    .build());
+        } else if (request.getOptions() != null) {
             request.getOptions().forEach(optReq -> {
                 QuestionOption option = QuestionOption.builder()
                         .text(optReq.getText())
@@ -161,7 +183,31 @@ public class QuestionService {
 
         // Update options
         question.getOptions().clear();
-        if (request.getOptions() != null) {
+        if (request.getType() == QuestionType.TRUE_FALSE) {
+            boolean correctIsTrue = Boolean.TRUE.equals(request.getCorrectAnswer());
+            question.getOptions().add(QuestionOption.builder()
+                    .question(question)
+                    .text("Verdadeiro")
+                    .isCorrect(correctIsTrue)
+                    .build());
+            question.getOptions().add(QuestionOption.builder()
+                    .question(question)
+                    .text("Falso")
+                    .isCorrect(!correctIsTrue)
+                    .build());
+        } else if (request.getType() == QuestionType.COMMENTED_PHRASE) {
+            boolean correctIsTrue = Boolean.TRUE.equals(request.getCorrectAnswer());
+            question.getOptions().add(QuestionOption.builder()
+                    .question(question)
+                    .text("Verdadeiro")
+                    .isCorrect(correctIsTrue)
+                    .build());
+            question.getOptions().add(QuestionOption.builder()
+                    .question(question)
+                    .text("Falso")
+                    .isCorrect(!correctIsTrue)
+                    .build());
+        } else if (request.getOptions() != null) {
             request.getOptions().forEach(optReq -> {
                 QuestionOption option = QuestionOption.builder()
                         .question(question)

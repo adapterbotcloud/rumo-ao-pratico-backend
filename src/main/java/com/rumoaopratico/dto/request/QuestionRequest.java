@@ -40,4 +40,15 @@ public class QuestionRequest {
 
     @Valid
     private List<QuestionOptionRequest> options;
+
+    // For TRUE_FALSE and COMMENTED_PHRASE questions
+    private Boolean correctAnswer;
+
+    // For FLASHCARD questions
+    private String frontContent;
+    private String backContent;
+
+    // For COMMENTED_PHRASE questions
+    private String phrase;
+    private String commentary;
 }
