@@ -32,6 +32,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     List<QuizAttempt> findAllByUserId(Long userId);
 
+    List<QuizAttempt> findByUserIdAndFinishedAtIsNullOrderByStartedAtDesc(Long userId);
+
     @Query("SELECT COALESCE(SUM(qa.correctCount), 0) FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.finishedAt IS NOT NULL")
     long sumCorrectCountByUserId(@Param("userId") Long userId);
 

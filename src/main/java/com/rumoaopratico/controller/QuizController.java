@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -24,6 +25,12 @@ import java.util.Map;
 public class QuizController {
 
     private final QuizService quizService;
+
+    @GetMapping("/pending")
+    @Operation(summary = "Get in-progress quiz attempts for current user")
+    public ResponseEntity<List<QuizAttemptResponse>> getPendingQuizzes() {
+        return ResponseEntity.ok(quizService.getPendingQuizzes(SecurityUtils.getCurrentUserId()));
+    }
 
     @PostMapping("/start")
     @Operation(summary = "Start a new quiz attempt")
@@ -55,5 +62,12 @@ public class QuizController {
     @Operation(summary = "Get quiz result")
     public ResponseEntity<QuizResultResponse> getResult(@PathVariable Long attemptId) {
         return ResponseEntity.ok(quizService.getResult(SecurityUtils.getCurrentUserId(), attemptId));
+    }
+
+    @PostMapping("/{attemptId}/abandon")
+    @Operation(summary = "Abandon a quiz attempt")
+    public ResponseEntity<Void> abandonQuiz(@PathVariable Long attemptId) {
+        quizService.abandonQuiz(SecurityUtils.getCurrentUserId(), attemptId);
+        return ResponseEntity.noContent().build();
     }
 }

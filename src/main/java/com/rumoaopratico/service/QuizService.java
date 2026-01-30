@@ -28,6 +28,33 @@ public class QuizService {
     private final QuestionRepository questionRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
+    public List<QuizAttemptResponse> getPendingQuizzes(Long userId) {
+        return quizAttemptRepository.findByUserIdAndFinishedAtIsNullOrderByStartedAtDesc(userId)
+                .stream()
+                .map(attempt -> {
+                    List<QuestionResponse> questions = loadQuestionsFromConfig(attempt);
+                    List<QuizAnswer> answers = quizAnswerRepository.findByAttemptId(attempt.getId());
+                    return QuizAttemptResponse.fromWithQuestions(attempt, questions, answers);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void abandonQuiz(Long userId, Long attemptId) {
+        QuizAttempt attempt = quizAttemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz attempt", attemptId));
+
+        if (attempt.getFinishedAt() != null) {
+            throw new BadRequestException("Quiz already finished");
+        }
+
+        long correctCount = quizAnswerRepository.countByAttemptIdAndIsCorrectTrue(attemptId);
+        attempt.setFinishedAt(LocalDateTime.now());
+        attempt.setCorrectCount((int) correctCount);
+        quizAttemptRepository.save(attempt);
+    }
+
     @Transactional
     public QuizAttemptResponse startQuiz(Long userId, QuizStartRequest request) {
         User user = userRepository.findById(userId)
