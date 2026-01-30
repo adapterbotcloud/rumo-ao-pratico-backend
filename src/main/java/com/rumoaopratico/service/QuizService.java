@@ -278,11 +278,20 @@ public class QuizService {
                 }
                 answerMap.put("selectedOptionId", matched.getId());
             }
+        } else if (answerValue.equals("correct") || answerValue.equals("wrong")) {
+            // FLASHCARD - self-assessment: user reports if they got it right
+            answerMap.put("selfAssessment", answerValue);
         } else {
             answerMap.put("answer", answerValue);
         }
 
-        boolean isCorrect = evaluateAnswer(question, answerMap);
+        boolean isCorrect;
+        if (answerMap.containsKey("selfAssessment")) {
+            // Flashcard: user self-reports correctness
+            isCorrect = "correct".equals(answerMap.get("selfAssessment"));
+        } else {
+            isCorrect = evaluateAnswer(question, answerMap);
+        }
 
         QuizAnswer answer = QuizAnswer.builder()
                 .attempt(attempt)
