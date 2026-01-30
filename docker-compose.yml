@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rumo-db
+    environment:
+      POSTGRES_DB: rumo_ao_pratico
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: rumo-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: rumo_ao_pratico
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: c2VjdXJlLXJ1bW8tYW8tcHJhdGljby1qd3Qtc2VjcmV0LWtleS10aGF0LWlzLWF0LWxlYXN0LTI1Ni1iaXRzLWxvbmctZm9yLWhtYWMtc2hhMjU2
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
