@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -28,6 +29,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
             Pageable pageable);
 
     long countByUserId(Long userId);
+
+    List<QuizAttempt> findAllByUserId(Long userId);
 
     @Query("SELECT COALESCE(SUM(qa.correctCount), 0) FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.finishedAt IS NOT NULL")
     long sumCorrectCountByUserId(@Param("userId") Long userId);
