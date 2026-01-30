@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,9 +44,18 @@ public class QuestionResponse {
                 .tags(q.getTags())
                 .isActive(q.getIsActive())
                 .createdAt(q.getCreatedAt())
-                .options(q.getOptions() != null
-                        ? q.getOptions().stream().map(QuestionOptionResponse::from).collect(Collectors.toList())
-                        : List.of())
+                .options(buildOptionsWithLabels(q))
                 .build();
+    }
+
+    private static List<QuestionOptionResponse> buildOptionsWithLabels(Question q) {
+        if (q.getOptions() == null || q.getOptions().isEmpty()) return List.of();
+        List<QuestionOptionResponse> result = new ArrayList<>();
+        String[] labels = {"a", "b", "c", "d", "e", "f", "g", "h"};
+        for (int i = 0; i < q.getOptions().size(); i++) {
+            String label = i < labels.length ? labels[i] : String.valueOf(i + 1);
+            result.add(QuestionOptionResponse.fromWithLabel(q.getOptions().get(i), label));
+        }
+        return result;
     }
 }

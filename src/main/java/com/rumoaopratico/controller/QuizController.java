@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/quiz")
 @RequiredArgsConstructor
@@ -38,9 +40,9 @@ public class QuizController {
 
     @PostMapping("/{attemptId}/answer")
     @Operation(summary = "Submit an answer for a quiz question")
-    public ResponseEntity<QuizAnswerResponse> submitAnswer(@PathVariable Long attemptId,
-                                                            @Valid @RequestBody QuizAnswerRequest request) {
-        return ResponseEntity.ok(quizService.submitAnswer(SecurityUtils.getCurrentUserId(), attemptId, request));
+    public ResponseEntity<QuizAttemptResponse> submitAnswer(@PathVariable Long attemptId,
+                                                            @RequestBody Map<String, Object> request) {
+        return ResponseEntity.ok(quizService.submitAnswerSimple(SecurityUtils.getCurrentUserId(), attemptId, request));
     }
 
     @PostMapping("/{attemptId}/finish")

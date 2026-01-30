@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -18,8 +19,37 @@ public class QuizResultResponse {
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
     private Integer totalQuestions;
+    private Integer correctAnswers;
+    private Double score;
+    private Long totalTimeSeconds;
+    private QuizMode mode;
+    private List<QuizResultQuestionResponse> questions;
+    private Map<String, BreakdownEntry> breakdownByTopic;
+    private Map<String, BreakdownEntry> breakdownByType;
+
+    // Keep old fields for backward compat
     private Integer correctCount;
     private Double successRate;
-    private QuizMode mode;
-    private List<QuizAnswerResponse> answers;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BreakdownEntry {
+        private int total;
+        private int correct;
+        private double score;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class QuizResultQuestionResponse {
+        private int index;
+        private Long questionId;
+        private QuestionResponse question;
+        private String userAnswer;
+        private boolean correct;
+    }
 }

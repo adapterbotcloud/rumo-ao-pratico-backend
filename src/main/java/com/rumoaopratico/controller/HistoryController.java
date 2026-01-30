@@ -1,6 +1,6 @@
 package com.rumoaopratico.controller;
 
-import com.rumoaopratico.dto.response.QuizAttemptResponse;
+import com.rumoaopratico.dto.response.HistoryEntryResponse;
 import com.rumoaopratico.dto.response.QuizResultResponse;
 import com.rumoaopratico.security.SecurityUtils;
 import com.rumoaopratico.service.HistoryService;
@@ -27,7 +27,7 @@ public class HistoryController {
 
     @GetMapping
     @Operation(summary = "Get quiz history (paginated, filterable)")
-    public ResponseEntity<Page<QuizAttemptResponse>> getHistory(
+    public ResponseEntity<Page<HistoryEntryResponse>> getHistory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @PageableDefault(size = 20, sort = "startedAt", direction = Sort.Direction.DESC) Pageable pageable) {

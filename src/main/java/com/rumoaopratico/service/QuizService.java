@@ -82,7 +82,7 @@ public class QuizService {
                 .map(QuestionResponse::from)
                 .collect(Collectors.toList());
 
-        return QuizAttemptResponse.fromWithQuestions(attempt, questionResponses);
+        return QuizAttemptResponse.fromWithQuestions(attempt, questionResponses, List.of());
     }
 
     @Transactional(readOnly = true)
@@ -92,8 +92,9 @@ public class QuizService {
 
         // Load questions from config
         List<QuestionResponse> questions = loadQuestionsFromConfig(attempt);
+        List<QuizAnswer> answers = quizAnswerRepository.findByAttemptId(attemptId);
 
-        return QuizAttemptResponse.fromWithQuestions(attempt, questions);
+        return QuizAttemptResponse.fromWithQuestions(attempt, questions, answers);
     }
 
     @Transactional
@@ -134,6 +135,81 @@ public class QuizService {
     }
 
     @Transactional
+    public QuizAttemptResponse submitAnswerSimple(Long userId, Long attemptId, Map<String, Object> request) {
+        QuizAttempt attempt = quizAttemptRepository.findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz attempt", attemptId));
+
+        if (attempt.getFinishedAt() != null) {
+            throw new BadRequestException("Quiz already finished");
+        }
+
+        // Find current question index (first unanswered)
+        List<QuestionResponse> questions = loadQuestionsFromConfig(attempt);
+        List<QuizAnswer> existingAnswers = quizAnswerRepository.findByAttemptId(attemptId);
+        Set<Long> answeredQuestionIds = existingAnswers.stream()
+                .map(a -> a.getQuestion().getId())
+                .collect(Collectors.toSet());
+
+        // Find current question
+        QuestionResponse currentQuestion = null;
+        for (QuestionResponse qr : questions) {
+            if (!answeredQuestionIds.contains(qr.getId())) {
+                currentQuestion = qr;
+                break;
+            }
+        }
+
+        if (currentQuestion == null) {
+            throw new BadRequestException("All questions already answered");
+        }
+
+        final Long currentQuestionId = currentQuestion.getId();
+        Question question = questionRepository.findById(currentQuestionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Question", currentQuestionId));
+
+        // Parse the answer - frontend sends { answer: "a" } or { answer: "true" }
+        String answerValue = request.get("answer") != null ? request.get("answer").toString() : "";
+
+        // Build answer map for evaluation
+        Map<String, Object> answerMap = new HashMap<>();
+        if (answerValue.matches("[a-h]")) {
+            // Multiple choice - find option by label index
+            int idx = answerValue.charAt(0) - 'a';
+            if (idx >= 0 && idx < question.getOptions().size()) {
+                answerMap.put("selectedOptionId", question.getOptions().get(idx).getId());
+            }
+        } else if (answerValue.equals("true") || answerValue.equals("false")) {
+            // TRUE_FALSE or COMMENTED_PHRASE - "true" = first option, "false" = second option
+            int selectedIdx = answerValue.equals("true") ? 0 : Math.min(1, question.getOptions().size() - 1);
+            if (!question.getOptions().isEmpty()) {
+                answerMap.put("selectedOptionId", question.getOptions().get(selectedIdx).getId());
+            }
+        } else {
+            answerMap.put("answer", answerValue);
+        }
+
+        boolean isCorrect = evaluateAnswer(question, answerMap);
+
+        QuizAnswer answer = QuizAnswer.builder()
+                .attempt(attempt)
+                .question(question)
+                .userAnswerJson(answerMap)
+                .isCorrect(isCorrect)
+                .build();
+
+        quizAnswerRepository.save(answer);
+
+        if (isCorrect) {
+            attempt.setCorrectCount(attempt.getCorrectCount() + 1);
+            quizAttemptRepository.save(attempt);
+        }
+
+        // Return updated attempt
+        List<QuizAnswer> allAnswers = quizAnswerRepository.findByAttemptId(attemptId);
+        return QuizAttemptResponse.fromWithQuestions(attempt, questions, allAnswers);
+    }
+
+    @Transactional
     public QuizResultResponse finishQuiz(Long userId, Long attemptId) {
         QuizAttempt attempt = quizAttemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz attempt", attemptId));
@@ -142,57 +218,113 @@ public class QuizService {
             throw new BadRequestException("Quiz already finished");
         }
 
-        long answeredCount = quizAnswerRepository.countByAttemptId(attemptId);
         long correctCount = quizAnswerRepository.countByAttemptIdAndIsCorrectTrue(attemptId);
 
         attempt.setFinishedAt(LocalDateTime.now());
         attempt.setCorrectCount((int) correctCount);
         quizAttemptRepository.save(attempt);
 
-        List<QuizAnswer> answers = quizAnswerRepository.findByAttemptId(attemptId);
-        List<QuizAnswerResponse> answerResponses = answers.stream()
-                .map(QuizAnswerResponse::fromWithQuestion)
-                .collect(Collectors.toList());
-
-        double successRate = attempt.getTotalQuestions() > 0
-                ? (double) correctCount / attempt.getTotalQuestions() * 100 : 0;
-
-        return QuizResultResponse.builder()
-                .attemptId(attemptId)
-                .startedAt(attempt.getStartedAt())
-                .finishedAt(attempt.getFinishedAt())
-                .totalQuestions(attempt.getTotalQuestions())
-                .correctCount((int) correctCount)
-                .successRate(Math.round(successRate * 100.0) / 100.0)
-                .mode(attempt.getMode())
-                .answers(answerResponses)
-                .build();
+        return buildQuizResult(attempt);
     }
 
     @Transactional(readOnly = true)
     public QuizResultResponse getResult(Long userId, Long attemptId) {
         QuizAttempt attempt = quizAttemptRepository.findByIdAndUserId(attemptId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz attempt", attemptId));
+        return buildQuizResult(attempt);
+    }
 
+    private QuizResultResponse buildQuizResult(QuizAttempt attempt) {
+        Long attemptId = attempt.getId();
         List<QuizAnswer> answers = quizAnswerRepository.findByAttemptId(attemptId);
-        List<QuizAnswerResponse> answerResponses = answers.stream()
-                .map(QuizAnswerResponse::fromWithQuestion)
-                .collect(Collectors.toList());
+        List<QuestionResponse> questionResponses = loadQuestionsFromConfig(attempt);
 
-        double successRate = attempt.getTotalQuestions() != null && attempt.getTotalQuestions() > 0
-                ? (double) (attempt.getCorrectCount() != null ? attempt.getCorrectCount() : 0)
-                  / attempt.getTotalQuestions() * 100 : 0;
+        int correctCount = attempt.getCorrectCount() != null ? attempt.getCorrectCount() : 0;
+        int total = attempt.getTotalQuestions() != null ? attempt.getTotalQuestions() : 0;
+        double score = total > 0 ? (double) correctCount / total * 100 : 0;
+
+        // Calculate time
+        long totalTimeSeconds = 0;
+        if (attempt.getStartedAt() != null) {
+            LocalDateTime end = attempt.getFinishedAt() != null ? attempt.getFinishedAt() : LocalDateTime.now();
+            totalTimeSeconds = java.time.Duration.between(attempt.getStartedAt(), end).getSeconds();
+        }
+
+        // Build questions list matching frontend format
+        List<QuizResultResponse.QuizResultQuestionResponse> resultQuestions = new ArrayList<>();
+        for (int i = 0; i < questionResponses.size(); i++) {
+            QuestionResponse qr = questionResponses.get(i);
+            QuizAnswer matchingAnswer = answers.stream()
+                    .filter(a -> a.getQuestion().getId().equals(qr.getId()))
+                    .findFirst().orElse(null);
+
+            String userAnswer = "";
+            boolean isCorrect = false;
+            if (matchingAnswer != null) {
+                isCorrect = Boolean.TRUE.equals(matchingAnswer.getIsCorrect());
+                userAnswer = extractLabel(matchingAnswer, qr);
+            }
+
+            resultQuestions.add(QuizResultResponse.QuizResultQuestionResponse.builder()
+                    .index(i)
+                    .questionId(qr.getId())
+                    .question(qr)
+                    .userAnswer(userAnswer)
+                    .correct(isCorrect)
+                    .build());
+        }
+
+        // Breakdowns
+        Map<String, QuizResultResponse.BreakdownEntry> byTopic = new LinkedHashMap<>();
+        Map<String, QuizResultResponse.BreakdownEntry> byType = new LinkedHashMap<>();
+        for (var rq : resultQuestions) {
+            String topic = rq.getQuestion().getTopicName();
+            String type = rq.getQuestion().getType().name();
+            byTopic.computeIfAbsent(topic, k -> new QuizResultResponse.BreakdownEntry(0, 0, 0));
+            byType.computeIfAbsent(type, k -> new QuizResultResponse.BreakdownEntry(0, 0, 0));
+            QuizResultResponse.BreakdownEntry te = byTopic.get(topic);
+            te.setTotal(te.getTotal() + 1);
+            if (rq.isCorrect()) te.setCorrect(te.getCorrect() + 1);
+            QuizResultResponse.BreakdownEntry tye = byType.get(type);
+            tye.setTotal(tye.getTotal() + 1);
+            if (rq.isCorrect()) tye.setCorrect(tye.getCorrect() + 1);
+        }
+        byTopic.values().forEach(e -> e.setScore(e.getTotal() > 0 ? (double) e.getCorrect() / e.getTotal() * 100 : 0));
+        byType.values().forEach(e -> e.setScore(e.getTotal() > 0 ? (double) e.getCorrect() / e.getTotal() * 100 : 0));
 
         return QuizResultResponse.builder()
                 .attemptId(attemptId)
                 .startedAt(attempt.getStartedAt())
                 .finishedAt(attempt.getFinishedAt())
-                .totalQuestions(attempt.getTotalQuestions())
-                .correctCount(attempt.getCorrectCount())
-                .successRate(Math.round(successRate * 100.0) / 100.0)
+                .totalQuestions(total)
+                .correctAnswers(correctCount)
+                .correctCount(correctCount)
+                .score(Math.round(score * 100.0) / 100.0)
+                .successRate(Math.round(score * 100.0) / 100.0)
+                .totalTimeSeconds(totalTimeSeconds)
                 .mode(attempt.getMode())
-                .answers(answerResponses)
+                .questions(resultQuestions)
+                .breakdownByTopic(byTopic)
+                .breakdownByType(byType)
                 .build();
+    }
+
+    private String extractLabel(QuizAnswer answer, QuestionResponse questionResponse) {
+        if (answer.getUserAnswerJson() == null) return "";
+        Object selectedOptionId = answer.getUserAnswerJson().get("selectedOptionId");
+        if (selectedOptionId != null) {
+            long optId = selectedOptionId instanceof Number
+                    ? ((Number) selectedOptionId).longValue()
+                    : Long.parseLong(selectedOptionId.toString());
+            for (var opt : questionResponse.getOptions()) {
+                if (opt.getId().equals(optId) && opt.getLabel() != null) {
+                    return opt.getLabel();
+                }
+            }
+            return selectedOptionId.toString();
+        }
+        Object answerText = answer.getUserAnswerJson().get("answer");
+        return answerText != null ? answerText.toString() : "";
     }
 
     private boolean evaluateAnswer(Question question, Map<String, Object> answer) {

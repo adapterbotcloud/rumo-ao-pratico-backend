@@ -12,8 +12,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class QuestionOptionResponse {
     private Long id;
+    private String label;
     private String text;
     private Boolean isCorrect;
+    private Boolean correct;
     private String explanation;
 
     public static QuestionOptionResponse from(QuestionOption opt) {
@@ -21,6 +23,18 @@ public class QuestionOptionResponse {
                 .id(opt.getId())
                 .text(opt.getText())
                 .isCorrect(opt.getIsCorrect())
+                .correct(opt.getIsCorrect())
+                .explanation(opt.getExplanation())
+                .build();
+    }
+
+    public static QuestionOptionResponse fromWithLabel(QuestionOption opt, String label) {
+        return QuestionOptionResponse.builder()
+                .id(opt.getId())
+                .label(label)
+                .text(opt.getText())
+                .isCorrect(opt.getIsCorrect())
+                .correct(opt.getIsCorrect())
                 .explanation(opt.getExplanation())
                 .build();
     }

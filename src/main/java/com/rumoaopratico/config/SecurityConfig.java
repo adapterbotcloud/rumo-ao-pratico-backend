@@ -30,6 +30,7 @@ public class SecurityConfig {
                     var config = new org.springframework.web.cors.CorsConfiguration();
                     config.addAllowedOrigin("http://localhost:3000");
                     config.addAllowedOrigin("http://localhost:5173");
+                    config.addAllowedOrigin("https://quiz.adapterbot.cloud");
                     config.addAllowedMethod("*");
                     config.addAllowedHeader("*");
                     config.setAllowCredentials(true);
