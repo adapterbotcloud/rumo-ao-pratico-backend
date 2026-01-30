@@ -74,4 +74,65 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     long countByUserIdAndIsActiveTrue(Long userId);
 
     long countByUserIdAndTopicIdAndIsActiveTrue(Long userId, Long topicId);
+
+    // Answer-status filtered queries (for Feature 1)
+    @Query("SELECT q FROM Question q WHERE q.isActive = true " +
+           "AND (:topicId IS NULL OR q.topic.id = :topicId) " +
+           "AND (:type IS NULL OR q.type = :type) " +
+           "AND (:difficulty IS NULL OR q.difficulty = :difficulty) " +
+           "AND (:search IS NULL OR LOWER(CAST(q.statement AS string)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+           "AND q.id NOT IN (SELECT DISTINCT qa.question.id FROM QuizAnswer qa WHERE qa.attempt.user.id = :userId)")
+    Page<Question> findFilteredGlobalUnanswered(
+            @Param("userId") Long userId,
+            @Param("topicId") Long topicId,
+            @Param("type") QuestionType type,
+            @Param("difficulty") Difficulty difficulty,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query("SELECT q FROM Question q WHERE q.isActive = true " +
+           "AND (:topicId IS NULL OR q.topic.id = :topicId) " +
+           "AND (:type IS NULL OR q.type = :type) " +
+           "AND (:difficulty IS NULL OR q.difficulty = :difficulty) " +
+           "AND (:search IS NULL OR LOWER(CAST(q.statement AS string)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+           "AND q.id IN (SELECT DISTINCT qa.question.id FROM QuizAnswer qa WHERE qa.attempt.user.id = :userId AND qa.isCorrect = true)")
+    Page<Question> findFilteredGlobalCorrect(
+            @Param("userId") Long userId,
+            @Param("topicId") Long topicId,
+            @Param("type") QuestionType type,
+            @Param("difficulty") Difficulty difficulty,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query("SELECT q FROM Question q WHERE q.isActive = true " +
+           "AND (:topicId IS NULL OR q.topic.id = :topicId) " +
+           "AND (:type IS NULL OR q.type = :type) " +
+           "AND (:difficulty IS NULL OR q.difficulty = :difficulty) " +
+           "AND (:search IS NULL OR LOWER(CAST(q.statement AS string)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+           "AND q.id IN (SELECT DISTINCT qa.question.id FROM QuizAnswer qa WHERE qa.attempt.user.id = :userId) " +
+           "AND q.id NOT IN (SELECT DISTINCT qa2.question.id FROM QuizAnswer qa2 WHERE qa2.attempt.user.id = :userId AND qa2.isCorrect = true)")
+    Page<Question> findFilteredGlobalIncorrect(
+            @Param("userId") Long userId,
+            @Param("topicId") Long topicId,
+            @Param("type") QuestionType type,
+            @Param("difficulty") Difficulty difficulty,
+            @Param("search") String search,
+            Pageable pageable);
+
+    // Smart selection for Quiz (Feature 2) — prioritize unanswered/incorrectly-answered
+    @Query("SELECT q FROM Question q WHERE q.isActive = true " +
+           "AND q.topic.id IN :topicIds " +
+           "AND (:type IS NULL OR q.type = :type) " +
+           "AND (:difficulty IS NULL OR q.difficulty = :difficulty) " +
+           "AND q.id NOT IN (" +
+           "  SELECT DISTINCT qa.question.id FROM QuizAnswer qa " +
+           "  WHERE qa.attempt.user.id = :userId AND qa.isCorrect = true" +
+           ") " +
+           "ORDER BY FUNCTION('RANDOM')")
+    List<Question> findUnansweredOrIncorrectForQuiz(
+            @Param("userId") Long userId,
+            @Param("topicIds") List<Long> topicIds,
+            @Param("type") QuestionType type,
+            @Param("difficulty") Difficulty difficulty,
+            Pageable pageable);
 }

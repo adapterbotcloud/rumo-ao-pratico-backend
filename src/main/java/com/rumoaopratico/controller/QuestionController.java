@@ -33,9 +33,10 @@ public class QuestionController {
             @RequestParam(required = false) QuestionType type,
             @RequestParam(required = false) Difficulty difficulty,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String answerStatus,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(questionService.getQuestions(
-                SecurityUtils.getCurrentUserId(), topicId, type, difficulty, search, pageable));
+                SecurityUtils.getCurrentUserId(), topicId, type, difficulty, search, answerStatus, pageable));
     }
 
     @GetMapping("/{id}")

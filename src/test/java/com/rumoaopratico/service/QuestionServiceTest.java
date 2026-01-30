@@ -11,6 +11,7 @@ import com.rumoaopratico.model.User;
 import com.rumoaopratico.model.enums.Difficulty;
 import com.rumoaopratico.model.enums.QuestionType;
 import com.rumoaopratico.repository.QuestionRepository;
+import com.rumoaopratico.repository.QuizAnswerRepository;
 import com.rumoaopratico.repository.TopicRepository;
 import com.rumoaopratico.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,8 @@ class QuestionServiceTest {
 
     @Mock
     private QuestionRepository questionRepository;
+    @Mock
+    private QuizAnswerRepository quizAnswerRepository;
     @Mock
     private TopicRepository topicRepository;
     @Mock
@@ -79,10 +82,12 @@ class QuestionServiceTest {
     @Test
     void getQuestions_shouldReturnPage() {
         Page<Question> page = new PageImpl<>(List.of(question));
-        when(questionRepository.findFiltered(eq(1L), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(questionRepository.findFilteredGlobal(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(page);
+        when(quizAnswerRepository.findAnswerStatsByUserAndQuestions(eq(1L), anyList()))
+                .thenReturn(List.of());
 
-        Page<QuestionResponse> result = questionService.getQuestions(1L, null, null, null, null, PageRequest.of(0, 20));
+        Page<QuestionResponse> result = questionService.getQuestions(1L, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getStatement()).isEqualTo("Test question?");

@@ -30,9 +30,17 @@ public class QuestionResponse {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private List<QuestionOptionResponse> options;
+    private String answerStatus; // "UNANSWERED", "CORRECT", "INCORRECT"
+    private Integer timesAnswered;
+    private Integer timesCorrect;
+    private Boolean correctAnswer;
+    private String frontContent;
+    private String backContent;
+    private String phrase;
+    private String commentary;
 
     public static QuestionResponse from(Question q) {
-        return QuestionResponse.builder()
+        QuestionResponse response = QuestionResponse.builder()
                 .id(q.getId())
                 .topicId(q.getTopic().getId())
                 .topicName(q.getTopic().getName())
@@ -46,6 +54,24 @@ public class QuestionResponse {
                 .createdAt(q.getCreatedAt())
                 .options(buildOptionsWithLabels(q))
                 .build();
+
+        // Compute correctAnswer for TRUE_FALSE and COMMENTED_PHRASE
+        if (q.getType() == QuestionType.TRUE_FALSE || q.getType() == QuestionType.COMMENTED_PHRASE) {
+            if (q.getOptions() != null && !q.getOptions().isEmpty()) {
+                for (int i = 0; i < q.getOptions().size(); i++) {
+                    if (Boolean.TRUE.equals(q.getOptions().get(i).getIsCorrect())) {
+                        String optText = q.getOptions().get(i).getText().toLowerCase().trim();
+                        response.setCorrectAnswer(
+                            optText.equals("verdadeiro") || optText.equals("true") ||
+                            optText.equals("correta") || optText.equals("correto")
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+
+        return response;
     }
 
     private static List<QuestionOptionResponse> buildOptionsWithLabels(Question q) {

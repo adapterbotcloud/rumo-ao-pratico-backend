@@ -3,6 +3,7 @@ package com.rumoaopratico.service;
 import com.rumoaopratico.dto.request.QuizAnswerRequest;
 import com.rumoaopratico.dto.request.QuizStartRequest;
 import com.rumoaopratico.dto.response.*;
+import com.rumoaopratico.dto.response.QuestionOptionResponse;
 import com.rumoaopratico.exception.BadRequestException;
 import com.rumoaopratico.exception.ResourceNotFoundException;
 import com.rumoaopratico.model.*;
@@ -66,19 +67,71 @@ public class QuizService {
             typeFilter = request.getTypes().get(0);
         }
 
-        List<Question> questions = questionRepository.findRandomForQuizGlobal(
-                request.getTopicIds(),
-                typeFilter,
-                request.getDifficulty(),
-                PageRequest.of(0, request.getQuestionCount())
-        );
+        List<Question> questions;
+        boolean prioritizeUnanswered = !Boolean.TRUE.equals(request.getIncludeCorrectlyAnswered());
 
-        // If multiple types specified, filter in memory
-        if (request.getTypes() != null && request.getTypes().size() > 1) {
-            questions = questions.stream()
-                    .filter(q -> request.getTypes().contains(q.getType()))
-                    .limit(request.getQuestionCount())
-                    .collect(Collectors.toList());
+        if (prioritizeUnanswered) {
+            // Smart selection: first try unanswered/incorrectly-answered questions
+            questions = questionRepository.findUnansweredOrIncorrectForQuiz(
+                    userId,
+                    request.getTopicIds(),
+                    typeFilter,
+                    request.getDifficulty(),
+                    PageRequest.of(0, request.getQuestionCount())
+            );
+
+            // If multiple types specified, filter in memory
+            if (request.getTypes() != null && request.getTypes().size() > 1) {
+                questions = questions.stream()
+                        .filter(q -> request.getTypes().contains(q.getType()))
+                        .collect(Collectors.toList());
+            }
+
+            // If not enough questions, fill remaining from all questions
+            if (questions.size() < request.getQuestionCount()) {
+                Set<Long> existingIds = questions.stream()
+                        .map(Question::getId)
+                        .collect(Collectors.toSet());
+
+                int remaining = request.getQuestionCount() - questions.size();
+                List<Question> additional = questionRepository.findRandomForQuizGlobal(
+                        request.getTopicIds(),
+                        typeFilter,
+                        request.getDifficulty(),
+                        PageRequest.of(0, remaining + existingIds.size())
+                );
+
+                // Filter out duplicates and apply type filter
+                List<Question> filtered = additional.stream()
+                        .filter(q -> !existingIds.contains(q.getId()))
+                        .filter(q -> request.getTypes() == null || request.getTypes().size() <= 1 || request.getTypes().contains(q.getType()))
+                        .limit(remaining)
+                        .collect(Collectors.toList());
+
+                questions = new ArrayList<>(questions);
+                questions.addAll(filtered);
+            }
+
+            // Trim to requested count
+            if (questions.size() > request.getQuestionCount()) {
+                questions = questions.subList(0, request.getQuestionCount());
+            }
+        } else {
+            // Include all questions (existing behavior)
+            questions = questionRepository.findRandomForQuizGlobal(
+                    request.getTopicIds(),
+                    typeFilter,
+                    request.getDifficulty(),
+                    PageRequest.of(0, request.getQuestionCount())
+            );
+
+            // If multiple types specified, filter in memory
+            if (request.getTypes() != null && request.getTypes().size() > 1) {
+                questions = questions.stream()
+                        .filter(q -> request.getTypes().contains(q.getType()))
+                        .limit(request.getQuestionCount())
+                        .collect(Collectors.toList());
+            }
         }
 
         if (questions.isEmpty()) {
@@ -205,10 +258,25 @@ public class QuizService {
                 answerMap.put("selectedOptionId", question.getOptions().get(idx).getId());
             }
         } else if (answerValue.equals("true") || answerValue.equals("false")) {
-            // TRUE_FALSE or COMMENTED_PHRASE - "true" = first option, "false" = second option
-            int selectedIdx = answerValue.equals("true") ? 0 : Math.min(1, question.getOptions().size() - 1);
+            // TRUE_FALSE or COMMENTED_PHRASE - match by option text
             if (!question.getOptions().isEmpty()) {
-                answerMap.put("selectedOptionId", question.getOptions().get(selectedIdx).getId());
+                QuestionOption matched = null;
+                for (QuestionOption opt : question.getOptions()) {
+                    String optText = opt.getText().toLowerCase().trim();
+                    if (answerValue.equals("true") && (optText.equals("verdadeiro") || optText.equals("true") || optText.equals("correta") || optText.equals("correto"))) {
+                        matched = opt;
+                        break;
+                    } else if (answerValue.equals("false") && (optText.equals("falso") || optText.equals("false") || optText.equals("incorreta") || optText.equals("incorreto"))) {
+                        matched = opt;
+                        break;
+                    }
+                }
+                // Fallback to index-based if no text match
+                if (matched == null) {
+                    int selectedIdx = answerValue.equals("true") ? 0 : Math.min(1, question.getOptions().size() - 1);
+                    matched = question.getOptions().get(selectedIdx);
+                }
+                answerMap.put("selectedOptionId", matched.getId());
             }
         } else {
             answerMap.put("answer", answerValue);
@@ -342,6 +410,18 @@ public class QuizService {
             long optId = selectedOptionId instanceof Number
                     ? ((Number) selectedOptionId).longValue()
                     : Long.parseLong(selectedOptionId.toString());
+
+            // For TRUE_FALSE and COMMENTED_PHRASE, return "true"/"false" instead of label
+            QuestionType qType = questionResponse.getType();
+            if (qType == QuestionType.TRUE_FALSE || qType == QuestionType.COMMENTED_PHRASE) {
+                List<QuestionOptionResponse> options = questionResponse.getOptions();
+                for (int i = 0; i < options.size(); i++) {
+                    if (options.get(i).getId().equals(optId)) {
+                        return i == 0 ? "true" : "false";
+                    }
+                }
+            }
+
             for (var opt : questionResponse.getOptions()) {
                 if (opt.getId().equals(optId) && opt.getLabel() != null) {
                     return opt.getLabel();

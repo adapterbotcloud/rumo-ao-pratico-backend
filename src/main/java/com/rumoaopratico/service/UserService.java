@@ -62,68 +62,94 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserStatsResponse getUserStats(Long userId) {
-        long totalAttempts = quizAttemptRepository.countByUserId(userId);
+        // Only count finished quizzes
         long totalAnswered = quizAttemptRepository.sumTotalQuestionsByUserId(userId);
         long totalCorrect = quizAttemptRepository.sumCorrectCountByUserId(userId);
         long totalTopics = topicRepository.count();
+        long totalQuestionsRegistered = questionRepository.countAllActive();
+        long uniqueQuestionsAnswered = quizAnswerRepository.countUniqueQuestionsAnsweredByUserId(userId);
 
         double averageScore = totalAnswered > 0 ? (double) totalCorrect / totalAnswered * 100 : 0;
 
-        // Calculate total time and breakdowns from finished attempts
+        // Calculate from finished attempts only
         List<QuizAttempt> allAttempts = quizAttemptRepository.findAllByUserId(userId);
         long totalTimeSeconds = 0;
+        long finishedCount = 0;
+        long studyCount = 0, evalCount = 0;
+        long studyCorrect = 0, studyTotal = 0;
+        long evalCorrect = 0, evalTotal = 0;
         Map<String, Long> quizzesByTopic = new LinkedHashMap<>();
         Map<String, Double> scoreByTopic = new LinkedHashMap<>();
         Map<String, Long> quizzesByType = new LinkedHashMap<>();
-
-        // Track correct/total per topic for score calculation
-        Map<String, long[]> topicStats = new LinkedHashMap<>(); // [correct, total]
+        Map<String, long[]> topicStats = new LinkedHashMap<>();
 
         for (QuizAttempt attempt : allAttempts) {
+            // Skip unfinished quizzes
+            if (attempt.getFinishedAt() == null) continue;
+            finishedCount++;
+
             // Total time
-            if (attempt.getStartedAt() != null && attempt.getFinishedAt() != null) {
+            if (attempt.getStartedAt() != null) {
                 totalTimeSeconds += Duration.between(attempt.getStartedAt(), attempt.getFinishedAt()).getSeconds();
             }
 
-            // Extract topic names from answers' questions
+            // Count by mode
+            if (attempt.getMode() != null) {
+                String modeName = attempt.getMode().name();
+                quizzesByType.merge(modeName, 1L, Long::sum);
+                int correct = attempt.getCorrectCount() != null ? attempt.getCorrectCount() : 0;
+                int total = attempt.getTotalQuestions() != null ? attempt.getTotalQuestions() : 0;
+                if ("STUDY".equals(modeName)) {
+                    studyCount++;
+                    studyCorrect += correct;
+                    studyTotal += total;
+                } else if ("EVALUATION".equals(modeName)) {
+                    evalCount++;
+                    evalCorrect += correct;
+                    evalTotal += total;
+                }
+            }
+
+            // Per-topic breakdowns from answers
             List<QuizAnswer> answers = quizAnswerRepository.findByAttemptId(attempt.getId());
             Set<String> attemptTopics = new LinkedHashSet<>();
             for (QuizAnswer answer : answers) {
                 String topicName = answer.getQuestion().getTopic().getName();
                 attemptTopics.add(topicName);
-
-                // Track per-topic stats
                 topicStats.computeIfAbsent(topicName, k -> new long[]{0, 0});
                 long[] ts = topicStats.get(topicName);
-                ts[1]++; // total
+                ts[1]++;
                 if (Boolean.TRUE.equals(answer.getIsCorrect())) {
-                    ts[0]++; // correct
+                    ts[0]++;
                 }
             }
 
-            // Count quizzes per topic
             for (String topic : attemptTopics) {
                 quizzesByTopic.merge(topic, 1L, Long::sum);
             }
-
-            // Count by mode/type
-            if (attempt.getMode() != null) {
-                quizzesByType.merge(attempt.getMode().name(), 1L, Long::sum);
-            }
         }
 
-        // Calculate score per topic
+        // Score per topic
         for (Map.Entry<String, long[]> entry : topicStats.entrySet()) {
             long[] ts = entry.getValue();
             double score = ts[1] > 0 ? (double) ts[0] / ts[1] * 100 : 0;
             scoreByTopic.put(entry.getKey(), Math.round(score * 100.0) / 100.0);
         }
 
+        double avgStudy = studyTotal > 0 ? (double) studyCorrect / studyTotal * 100 : 0;
+        double avgEval = evalTotal > 0 ? (double) evalCorrect / evalTotal * 100 : 0;
+
         return UserStatsResponse.builder()
-                .totalQuizzes(totalAttempts)
+                .totalQuizzes(finishedCount)
+                .totalQuizzesStudy(studyCount)
+                .totalQuizzesEvaluation(evalCount)
                 .totalQuestions(totalAnswered)
+                .totalQuestionsRegistered(totalQuestionsRegistered)
+                .uniqueQuestionsAnswered(uniqueQuestionsAnswered)
                 .correctAnswers(totalCorrect)
                 .averageScore(Math.round(averageScore * 100.0) / 100.0)
+                .averageScoreStudy(Math.round(avgStudy * 100.0) / 100.0)
+                .averageScoreEvaluation(Math.round(avgEval * 100.0) / 100.0)
                 .totalTime(totalTimeSeconds)
                 .quizzesByTopic(quizzesByTopic)
                 .scoreByTopic(scoreByTopic)

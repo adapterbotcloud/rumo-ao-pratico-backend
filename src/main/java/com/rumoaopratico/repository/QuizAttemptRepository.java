@@ -19,6 +19,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     Optional<QuizAttempt> findByIdAndUserId(Long id, Long userId);
 
     @Query("SELECT qa FROM QuizAttempt qa WHERE qa.user.id = :userId " +
+           "AND qa.finishedAt IS NOT NULL " +
            "AND (CAST(:startDate AS timestamp) IS NULL OR qa.startedAt >= :startDate) " +
            "AND (CAST(:endDate AS timestamp) IS NULL OR qa.startedAt <= :endDate) " +
            "ORDER BY qa.startedAt DESC")

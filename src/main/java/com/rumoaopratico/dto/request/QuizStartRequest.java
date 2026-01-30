@@ -34,4 +34,6 @@ public class QuizStartRequest {
 
     @NotNull(message = "Quiz mode is required")
     private QuizMode mode;
+
+    private Boolean includeCorrectlyAnswered; // default true
 }

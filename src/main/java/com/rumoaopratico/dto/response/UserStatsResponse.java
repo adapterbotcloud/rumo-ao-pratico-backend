@@ -12,16 +12,20 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserStatsResponse {
-    // Fields matching frontend UserStats interface
     private long totalQuizzes;
+    private long totalQuizzesStudy;
+    private long totalQuizzesEvaluation;
     private long totalQuestions;
+    private long totalQuestionsRegistered;
+    private long uniqueQuestionsAnswered;
     private long correctAnswers;
     private double averageScore;
+    private double averageScoreStudy;
+    private double averageScoreEvaluation;
     private long totalTime;
     private Map<String, Long> quizzesByTopic;
     private Map<String, Double> scoreByTopic;
     private Map<String, Long> quizzesByType;
 
-    // Extra fields
     private long totalTopics;
 }
