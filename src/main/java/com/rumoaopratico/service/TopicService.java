@@ -21,12 +21,13 @@ public class TopicService {
     private final UserRepository userRepository;
 
     public Page<TopicResponse> getTopics(Long userId, Pageable pageable) {
-        return topicRepository.findByUserId(userId, pageable)
+        // Topics are global — all users see all topics
+        return topicRepository.findAll(pageable)
                 .map(TopicResponse::from);
     }
 
     public TopicResponse getTopic(Long userId, Long topicId) {
-        Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
+        Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
         return TopicResponse.from(topic);
     }
@@ -38,7 +39,7 @@ public class TopicService {
 
         Topic parent = null;
         if (request.getParentId() != null) {
-            parent = topicRepository.findByIdAndUserId(request.getParentId(), userId)
+            parent = topicRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent topic", request.getParentId()));
         }
 
@@ -54,13 +55,13 @@ public class TopicService {
 
     @Transactional
     public TopicResponse updateTopic(Long userId, Long topicId, TopicRequest request) {
-        Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
+        Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
 
         topic.setName(request.getName());
 
         if (request.getParentId() != null) {
-            Topic parent = topicRepository.findByIdAndUserId(request.getParentId(), userId)
+            Topic parent = topicRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent topic", request.getParentId()));
             topic.setParent(parent);
         } else {
@@ -73,7 +74,7 @@ public class TopicService {
 
     @Transactional
     public void deleteTopic(Long userId, Long topicId) {
-        Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
+        Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
         topicRepository.delete(topic);
     }

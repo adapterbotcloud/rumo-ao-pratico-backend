@@ -65,7 +65,7 @@ public class UserService {
         long totalAttempts = quizAttemptRepository.countByUserId(userId);
         long totalAnswered = quizAttemptRepository.sumTotalQuestionsByUserId(userId);
         long totalCorrect = quizAttemptRepository.sumCorrectCountByUserId(userId);
-        long totalTopics = topicRepository.findByUserId(userId).size();
+        long totalTopics = topicRepository.count();
 
         double averageScore = totalAnswered > 0 ? (double) totalCorrect / totalAnswered * 100 : 0;
 

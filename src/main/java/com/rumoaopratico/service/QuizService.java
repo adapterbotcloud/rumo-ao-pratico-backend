@@ -39,8 +39,7 @@ public class QuizService {
             typeFilter = request.getTypes().get(0);
         }
 
-        List<Question> questions = questionRepository.findRandomForQuiz(
-                userId,
+        List<Question> questions = questionRepository.findRandomForQuizGlobal(
                 request.getTopicIds(),
                 typeFilter,
                 request.getDifficulty(),

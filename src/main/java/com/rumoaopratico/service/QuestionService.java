@@ -31,13 +31,15 @@ public class QuestionService {
 
     public Page<QuestionResponse> getQuestions(Long userId, Long topicId, QuestionType type,
                                                Difficulty difficulty, String search, Pageable pageable) {
-        return questionRepository.findFiltered(userId, topicId, type, difficulty, search, pageable)
+        // Questions are global — all users see all questions
+        return questionRepository.findFilteredGlobal(topicId, type, difficulty, search, pageable)
                 .map(QuestionResponse::from);
     }
 
     @Transactional(readOnly = true)
     public QuestionResponse getQuestion(Long userId, Long questionId) {
-        Question question = questionRepository.findByIdAndUserId(questionId, userId)
+        Question question = questionRepository.findById(questionId)
+                .filter(q -> Boolean.TRUE.equals(q.getIsActive()))
                 .orElseThrow(() -> new ResourceNotFoundException("Question", questionId));
         return QuestionResponse.from(question);
     }
@@ -46,7 +48,7 @@ public class QuestionService {
     public QuestionResponse createQuestion(Long userId, QuestionRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        Topic topic = topicRepository.findByIdAndUserId(request.getTopicId(), userId)
+        Topic topic = topicRepository.findById(request.getTopicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", request.getTopicId()));
 
         Question question = Question.builder()
@@ -79,10 +81,11 @@ public class QuestionService {
 
     @Transactional
     public QuestionResponse updateQuestion(Long userId, Long questionId, QuestionRequest request) {
-        Question question = questionRepository.findByIdAndUserId(questionId, userId)
+        Question question = questionRepository.findById(questionId)
+                .filter(q -> Boolean.TRUE.equals(q.getIsActive()))
                 .orElseThrow(() -> new ResourceNotFoundException("Question", questionId));
 
-        Topic topic = topicRepository.findByIdAndUserId(request.getTopicId(), userId)
+        Topic topic = topicRepository.findById(request.getTopicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", request.getTopicId()));
 
         question.setTopic(topic);
@@ -113,7 +116,8 @@ public class QuestionService {
 
     @Transactional
     public void deleteQuestion(Long userId, Long questionId) {
-        Question question = questionRepository.findByIdAndUserId(questionId, userId)
+        Question question = questionRepository.findById(questionId)
+                .filter(q -> Boolean.TRUE.equals(q.getIsActive()))
                 .orElseThrow(() -> new ResourceNotFoundException("Question", questionId));
         // Soft delete
         question.setIsActive(false);
