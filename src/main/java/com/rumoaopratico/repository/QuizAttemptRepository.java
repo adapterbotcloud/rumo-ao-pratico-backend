@@ -4,6 +4,7 @@ import com.rumoaopratico.model.QuizAttempt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,4 +34,8 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
 
     @Query("SELECT COALESCE(SUM(qa.totalQuestions), 0) FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.finishedAt IS NOT NULL")
     long sumTotalQuestionsByUserId(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("DELETE FROM QuizAttempt qa WHERE qa.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

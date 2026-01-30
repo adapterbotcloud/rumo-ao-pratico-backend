@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger/**"
                         ).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

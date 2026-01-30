@@ -1,5 +1,6 @@
 package com.rumoaopratico.model;
 
+import com.rumoaopratico.model.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -26,6 +27,11 @@ public class User {
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20, nullable = false)
+    @Builder.Default
+    private Role role = Role.USER;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

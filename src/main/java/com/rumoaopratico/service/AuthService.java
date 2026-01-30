@@ -84,8 +84,9 @@ public class AuthService {
     }
 
     private AuthResponse generateAuthResponse(User user) {
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getEmail());
+        String role = user.getRole() != null ? user.getRole().name() : "USER";
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), role);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), user.getEmail(), role);
 
         return AuthResponse.of(
                 accessToken,

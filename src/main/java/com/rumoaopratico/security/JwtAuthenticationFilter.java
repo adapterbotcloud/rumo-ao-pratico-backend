@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -35,10 +36,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if ("access".equals(tokenType)) {
                     Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
                     String email = jwtTokenProvider.getEmailFromToken(jwt);
+                    String role = jwtTokenProvider.getRoleFromToken(jwt);
 
-                    UserPrincipal principal = new UserPrincipal(userId, email);
+                    UserPrincipal principal = new UserPrincipal(userId, email, role != null ? role : "USER");
+
+                    List<SimpleGrantedAuthority> authorities = List.of(
+                            new SimpleGrantedAuthority("ROLE_" + (role != null ? role : "USER"))
+                    );
+
                     UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList());
+                            new UsernamePasswordAuthenticationToken(principal, null, authorities);
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }

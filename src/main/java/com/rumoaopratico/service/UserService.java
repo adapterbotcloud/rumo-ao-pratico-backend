@@ -3,6 +3,7 @@ package com.rumoaopratico.service;
 import com.rumoaopratico.dto.request.UpdateUserRequest;
 import com.rumoaopratico.dto.response.UserResponse;
 import com.rumoaopratico.dto.response.UserStatsResponse;
+import com.rumoaopratico.exception.DuplicateResourceException;
 import com.rumoaopratico.exception.ResourceNotFoundException;
 import com.rumoaopratico.model.User;
 import com.rumoaopratico.repository.*;
@@ -35,6 +36,15 @@ public class UserService {
 
         if (StringUtils.hasText(request.getName())) {
             user.setName(request.getName());
+        }
+        if (StringUtils.hasText(request.getEmail())) {
+            // Check if email is different and not taken
+            if (!request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                if (userRepository.existsByEmail(request.getEmail())) {
+                    throw new DuplicateResourceException("Email already in use: " + request.getEmail());
+                }
+                user.setEmail(request.getEmail());
+            }
         }
         if (StringUtils.hasText(request.getPassword())) {
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));

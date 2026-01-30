@@ -31,21 +31,22 @@ public class JwtTokenProvider {
         this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(Long userId, String email) {
-        return generateToken(userId, email, accessExpiration, "access");
+    public String generateAccessToken(Long userId, String email, String role) {
+        return generateToken(userId, email, role, accessExpiration, "access");
     }
 
-    public String generateRefreshToken(Long userId, String email) {
-        return generateToken(userId, email, refreshExpiration, "refresh");
+    public String generateRefreshToken(Long userId, String email, String role) {
+        return generateToken(userId, email, role, refreshExpiration, "refresh");
     }
 
-    private String generateToken(Long userId, String email, long expiration, String type) {
+    private String generateToken(Long userId, String email, String role, long expiration, String type) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
+                .claim("role", role)
                 .claim("type", type)
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -61,6 +62,11 @@ public class JwtTokenProvider {
     public String getEmailFromToken(String token) {
         Claims claims = parseClaims(token);
         return claims.get("email", String.class);
+    }
+
+    public String getRoleFromToken(String token) {
+        Claims claims = parseClaims(token);
+        return claims.get("role", String.class);
     }
 
     public String getTokenType(String token) {

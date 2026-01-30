@@ -8,4 +8,5 @@ import lombok.Data;
 public class UserPrincipal {
     private Long id;
     private String email;
+    private String role;
 }
