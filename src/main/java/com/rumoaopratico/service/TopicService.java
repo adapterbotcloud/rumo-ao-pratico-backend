@@ -1,124 +1,80 @@
 package com.rumoaopratico.service;
 
-import com.rumoaopratico.dto.topic.TopicRequest;
-import com.rumoaopratico.dto.topic.TopicResponse;
-import com.rumoaopratico.exception.BadRequestException;
+import com.rumoaopratico.dto.request.TopicRequest;
+import com.rumoaopratico.dto.response.TopicResponse;
 import com.rumoaopratico.exception.ResourceNotFoundException;
 import com.rumoaopratico.model.Topic;
 import com.rumoaopratico.model.User;
 import com.rumoaopratico.repository.TopicRepository;
 import com.rumoaopratico.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 @Service
+@RequiredArgsConstructor
 public class TopicService {
 
     private final TopicRepository topicRepository;
     private final UserRepository userRepository;
 
-    public TopicService(TopicRepository topicRepository, UserRepository userRepository) {
-        this.topicRepository = topicRepository;
-        this.userRepository = userRepository;
+    public Page<TopicResponse> getTopics(Long userId, Pageable pageable) {
+        return topicRepository.findByUserId(userId, pageable)
+                .map(TopicResponse::from);
     }
 
-    public Page<TopicResponse> listTopics(UUID userId, Pageable pageable) {
-        return topicRepository.findByUserIdAndParentIsNull(userId, pageable)
-                .map(this::toResponseWithChildren);
-    }
-
-    public TopicResponse getTopicById(UUID topicId, UUID userId) {
+    public TopicResponse getTopic(Long userId, Long topicId) {
         Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic", "id", topicId));
-        return toResponseWithChildren(topic);
+                .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
+        return TopicResponse.from(topic);
     }
 
     @Transactional
-    public TopicResponse createTopic(UUID userId, TopicRequest request) {
+    public TopicResponse createTopic(Long userId, TopicRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        Topic parent = null;
+        if (request.getParentId() != null) {
+            parent = topicRepository.findByIdAndUserId(request.getParentId(), userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent topic", request.getParentId()));
+        }
 
         Topic topic = Topic.builder()
                 .user(user)
-                .name(request.name())
-                .description(request.description())
+                .name(request.getName())
+                .parent(parent)
                 .build();
 
-        if (request.parentId() != null) {
-            Topic parent = topicRepository.findByIdAndUserId(request.parentId(), userId)
-                    .orElseThrow(() -> new BadRequestException("Parent topic not found: " + request.parentId()));
-            topic.setParent(parent);
-        }
-
         topic = topicRepository.save(topic);
-        return toResponse(topic);
+        return TopicResponse.from(topic);
     }
 
     @Transactional
-    public TopicResponse updateTopic(UUID topicId, UUID userId, TopicRequest request) {
+    public TopicResponse updateTopic(Long userId, Long topicId, TopicRequest request) {
         Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic", "id", topicId));
+                .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
 
-        topic.setName(request.name());
-        topic.setDescription(request.description());
+        topic.setName(request.getName());
 
-        if (request.parentId() != null) {
-            if (request.parentId().equals(topicId)) {
-                throw new BadRequestException("A topic cannot be its own parent");
-            }
-            Topic parent = topicRepository.findByIdAndUserId(request.parentId(), userId)
-                    .orElseThrow(() -> new BadRequestException("Parent topic not found: " + request.parentId()));
+        if (request.getParentId() != null) {
+            Topic parent = topicRepository.findByIdAndUserId(request.getParentId(), userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Parent topic", request.getParentId()));
             topic.setParent(parent);
         } else {
             topic.setParent(null);
         }
 
         topic = topicRepository.save(topic);
-        return toResponseWithChildren(topic);
+        return TopicResponse.from(topic);
     }
 
     @Transactional
-    public void deleteTopic(UUID topicId, UUID userId) {
+    public void deleteTopic(Long userId, Long topicId) {
         Topic topic = topicRepository.findByIdAndUserId(topicId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic", "id", topicId));
+                .orElseThrow(() -> new ResourceNotFoundException("Topic", topicId));
         topicRepository.delete(topic);
-    }
-
-    private TopicResponse toResponse(Topic topic) {
-        long questionCount = topicRepository.countActiveQuestionsByTopicId(topic.getId());
-        return new TopicResponse(
-                topic.getId(),
-                topic.getName(),
-                topic.getParent() != null ? topic.getParent().getId() : null,
-                topic.getDescription(),
-                null,
-                questionCount,
-                topic.getCreatedAt(),
-                topic.getUpdatedAt()
-        );
-    }
-
-    private TopicResponse toResponseWithChildren(Topic topic) {
-        long questionCount = topicRepository.countActiveQuestionsByTopicId(topic.getId());
-        List<TopicResponse> children = topic.getChildren() != null
-                ? topic.getChildren().stream().map(this::toResponseWithChildren).collect(Collectors.toList())
-                : null;
-
-        return new TopicResponse(
-                topic.getId(),
-                topic.getName(),
-                topic.getParent() != null ? topic.getParent().getId() : null,
-                topic.getDescription(),
-                children,
-                questionCount,
-                topic.getCreatedAt(),
-                topic.getUpdatedAt()
-        );
     }
 }

@@ -1,28 +1,26 @@
 package com.rumoaopratico.model;
 
+import com.rumoaopratico.model.enums.Difficulty;
+import com.rumoaopratico.model.enums.QuestionType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "questions")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@EqualsAndHashCode(exclude = {"options", "topic", "user"})
-@ToString(exclude = {"options", "topic", "user"})
 public class Question {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -33,7 +31,7 @@ public class Question {
     private Topic topic;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "question_type")
+    @Column(nullable = false, length = 30)
     private QuestionType type;
 
     @Column(nullable = false, columnDefinition = "TEXT")
@@ -42,32 +40,27 @@ public class Question {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 500)
     private String bibliography;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "difficulty_level")
+    @Column(length = 20)
     private Difficulty difficulty;
 
-    @Column
+    @Column(length = 500)
     private String tags;
 
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;
 
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @OrderBy("orderIndex ASC")
-    @Builder.Default
-    private List<QuestionOption> options = new ArrayList<>();
-
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<QuestionOption> options = new ArrayList<>();
 
     public void addOption(QuestionOption option) {
         options.add(option);

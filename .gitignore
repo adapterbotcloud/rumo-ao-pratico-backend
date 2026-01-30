@@ -32,14 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
-### OS ###
+### Mac ###
 .DS_Store
-Thumbs.db
 
 ### Logs ###
 *.log
 logs/
-
-### Environment ###
-.env
-*.env

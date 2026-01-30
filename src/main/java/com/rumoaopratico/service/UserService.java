@@ -1,69 +1,65 @@
 package com.rumoaopratico.service;
 
-import com.rumoaopratico.dto.user.UpdateUserRequest;
-import com.rumoaopratico.dto.user.UserResponse;
+import com.rumoaopratico.dto.request.UpdateUserRequest;
+import com.rumoaopratico.dto.response.UserResponse;
+import com.rumoaopratico.dto.response.UserStatsResponse;
 import com.rumoaopratico.exception.ResourceNotFoundException;
 import com.rumoaopratico.model.User;
-import com.rumoaopratico.repository.QuestionRepository;
-import com.rumoaopratico.repository.QuizAttemptRepository;
-import com.rumoaopratico.repository.UserRepository;
+import com.rumoaopratico.repository.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.UUID;
-
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TopicRepository topicRepository;
     private final QuestionRepository questionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, QuestionRepository questionRepository,
-                       QuizAttemptRepository quizAttemptRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.questionRepository = questionRepository;
-        this.quizAttemptRepository = quizAttemptRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    public UserResponse getCurrentUser(UUID userId) {
+    public UserResponse getCurrentUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        long totalQuestions = questionRepository.countByUserIdAndIsActiveTrue(userId);
-        long totalAttempts = quizAttemptRepository.countByUserId(userId);
-        long totalCorrect = quizAttemptRepository.sumCorrectCountByUserId(userId);
-        long totalAnswered = quizAttemptRepository.sumTotalQuestionsByUserId(userId);
-        double accuracy = totalAnswered > 0 ? (double) totalCorrect / totalAnswered * 100.0 : 0.0;
-
-        return new UserResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                user.getCreatedAt(),
-                totalQuestions,
-                totalAttempts,
-                Math.round(accuracy * 100.0) / 100.0
-        );
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        return UserResponse.from(user);
     }
 
     @Transactional
-    public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
+    public UserResponse updateCurrentUser(Long userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        if (StringUtils.hasText(request.name())) {
-            user.setName(request.name());
+        if (StringUtils.hasText(request.getName())) {
+            user.setName(request.getName());
         }
-        if (StringUtils.hasText(request.password())) {
-            user.setPasswordHash(passwordEncoder.encode(request.password()));
+        if (StringUtils.hasText(request.getPassword())) {
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }
 
         user = userRepository.save(user);
-        return getCurrentUser(user.getId());
+        return UserResponse.from(user);
+    }
+
+    public UserStatsResponse getUserStats(Long userId) {
+        long totalQuestions = questionRepository.countByUserIdAndIsActiveTrue(userId);
+        long totalAttempts = quizAttemptRepository.countByUserId(userId);
+        long totalAnswered = quizAttemptRepository.sumTotalQuestionsByUserId(userId);
+        long totalCorrect = quizAttemptRepository.sumCorrectCountByUserId(userId);
+        long totalTopics = topicRepository.findByUserId(userId).size();
+
+        double successRate = totalAnswered > 0 ? (double) totalCorrect / totalAnswered * 100 : 0;
+
+        return UserStatsResponse.builder()
+                .totalQuestions(totalQuestions)
+                .totalQuizAttempts(totalAttempts)
+                .totalAnswered(totalAnswered)
+                .totalCorrect(totalCorrect)
+                .successRate(Math.round(successRate * 100.0) / 100.0)
+                .totalTopics(totalTopics)
+                .build();
     }
 }

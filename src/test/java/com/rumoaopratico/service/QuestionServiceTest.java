@@ -1,14 +1,19 @@
 package com.rumoaopratico.service;
 
-import com.rumoaopratico.dto.question.*;
+import com.rumoaopratico.dto.request.QuestionOptionRequest;
+import com.rumoaopratico.dto.request.QuestionRequest;
+import com.rumoaopratico.dto.response.QuestionResponse;
 import com.rumoaopratico.exception.ResourceNotFoundException;
-import com.rumoaopratico.model.*;
-import com.rumoaopratico.repository.QuestionOptionRepository;
+import com.rumoaopratico.model.Question;
+import com.rumoaopratico.model.QuestionOption;
+import com.rumoaopratico.model.Topic;
+import com.rumoaopratico.model.User;
+import com.rumoaopratico.model.enums.Difficulty;
+import com.rumoaopratico.model.enums.QuestionType;
 import com.rumoaopratico.repository.QuestionRepository;
 import com.rumoaopratico.repository.TopicRepository;
 import com.rumoaopratico.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,11 +25,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,180 +39,129 @@ class QuestionServiceTest {
 
     @Mock
     private QuestionRepository questionRepository;
-
-    @Mock
-    private QuestionOptionRepository questionOptionRepository;
-
     @Mock
     private TopicRepository topicRepository;
-
     @Mock
     private UserRepository userRepository;
 
     @InjectMocks
     private QuestionService questionService;
 
-    private User testUser;
-    private Topic testTopic;
-    private Question testQuestion;
-    private final UUID userId = UUID.randomUUID();
-    private final UUID topicId = UUID.randomUUID();
-    private final UUID questionId = UUID.randomUUID();
+    private User user;
+    private Topic topic;
+    private Question question;
 
     @BeforeEach
     void setUp() {
-        testUser = User.builder()
-                .id(userId)
-                .name("Test User")
-                .email("test@example.com")
-                .passwordHash("hash")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        user = User.builder().id(1L).name("Test User").email("test@test.com").build();
+        topic = Topic.builder().id(1L).user(user).name("Arte Naval").build();
 
-        testTopic = Topic.builder()
-                .id(topicId)
-                .user(testUser)
-                .name("Test Topic")
-                .description("A test topic")
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        QuestionOption option1 = QuestionOption.builder()
-                .id(UUID.randomUUID())
-                .text("Option A")
-                .isCorrect(true)
-                .orderIndex(0)
-                .build();
-
-        QuestionOption option2 = QuestionOption.builder()
-                .id(UUID.randomUUID())
-                .text("Option B")
-                .isCorrect(false)
-                .orderIndex(1)
-                .build();
-
-        testQuestion = Question.builder()
-                .id(questionId)
-                .user(testUser)
-                .topic(testTopic)
+        List<QuestionOption> options = new ArrayList<>();
+        question = Question.builder()
+                .id(1L)
+                .user(user)
+                .topic(topic)
                 .type(QuestionType.MULTIPLE_CHOICE)
-                .statement("What is the answer?")
-                .explanation("This is the explanation.")
+                .statement("Test question?")
+                .explanation("Test explanation")
                 .difficulty(Difficulty.MEDIUM)
-                .tags("test")
                 .isActive(true)
-                .options(new ArrayList<>(List.of(option1, option2)))
                 .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .options(options)
                 .build();
 
-        option1.setQuestion(testQuestion);
-        option2.setQuestion(testQuestion);
+        QuestionOption opt1 = QuestionOption.builder().id(1L).question(question).text("Option A").isCorrect(true).build();
+        QuestionOption opt2 = QuestionOption.builder().id(2L).question(question).text("Option B").isCorrect(false).build();
+        options.add(opt1);
+        options.add(opt2);
     }
 
     @Test
-    @DisplayName("Should create a question with options")
-    void createQuestion_shouldCreateWithOptions() {
-        QuestionRequest request = new QuestionRequest(
-                topicId,
-                QuestionType.MULTIPLE_CHOICE,
-                "What is the answer?",
-                "Explanation",
-                "Bibliography",
-                Difficulty.MEDIUM,
-                "test",
-                List.of(
-                        new QuestionOptionRequest("Option A", true, null, 0),
-                        new QuestionOptionRequest("Option B", false, null, 1)
-                )
-        );
+    void getQuestions_shouldReturnPage() {
+        Page<Question> page = new PageImpl<>(List.of(question));
+        when(questionRepository.findFiltered(eq(1L), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(page);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-        when(topicRepository.findByIdAndUserId(topicId, userId)).thenReturn(Optional.of(testTopic));
-        when(questionRepository.save(any(Question.class))).thenReturn(testQuestion);
+        Page<QuestionResponse> result = questionService.getQuestions(1L, null, null, null, null, PageRequest.of(0, 20));
 
-        QuestionResponse response = questionService.createQuestion(userId, request);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getStatement()).isEqualTo("Test question?");
+    }
 
-        assertThat(response).isNotNull();
-        assertThat(response.statement()).isEqualTo("What is the answer?");
-        assertThat(response.type()).isEqualTo(QuestionType.MULTIPLE_CHOICE);
-        assertThat(response.options()).hasSize(2);
+    @Test
+    void getQuestion_shouldReturnQuestion() {
+        when(questionRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(question));
 
+        QuestionResponse result = questionService.getQuestion(1L, 1L);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getStatement()).isEqualTo("Test question?");
+        assertThat(result.getOptions()).hasSize(2);
+    }
+
+    @Test
+    void getQuestion_notFound_shouldThrow() {
+        when(questionRepository.findByIdAndUserId(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> questionService.getQuestion(1L, 99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void createQuestion_shouldCreateSuccessfully() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(topicRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(topic));
+        when(questionRepository.save(any(Question.class))).thenReturn(question);
+
+        QuestionRequest request = QuestionRequest.builder()
+                .topicId(1L)
+                .type(QuestionType.MULTIPLE_CHOICE)
+                .statement("Test question?")
+                .explanation("Test explanation")
+                .difficulty(Difficulty.MEDIUM)
+                .options(List.of(
+                        QuestionOptionRequest.builder().text("Option A").isCorrect(true).build(),
+                        QuestionOptionRequest.builder().text("Option B").isCorrect(false).build()
+                ))
+                .build();
+
+        QuestionResponse result = questionService.createQuestion(1L, request);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getStatement()).isEqualTo("Test question?");
         verify(questionRepository).save(any(Question.class));
     }
 
     @Test
-    @DisplayName("Should throw when creating question for non-existent topic")
-    void createQuestion_shouldThrowWhenTopicNotFound() {
-        QuestionRequest request = new QuestionRequest(
-                topicId, QuestionType.MULTIPLE_CHOICE, "Q?", null, null, Difficulty.EASY, null, null
-        );
+    void deleteQuestion_shouldSoftDelete() {
+        when(questionRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(question));
+        when(questionRepository.save(any(Question.class))).thenReturn(question);
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-        when(topicRepository.findByIdAndUserId(topicId, userId)).thenReturn(Optional.empty());
+        questionService.deleteQuestion(1L, 1L);
 
-        assertThatThrownBy(() -> questionService.createQuestion(userId, request))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("Topic");
+        assertThat(question.getIsActive()).isFalse();
+        verify(questionRepository).save(question);
     }
 
     @Test
-    @DisplayName("Should list questions with pagination")
-    void listQuestions_shouldReturnPagedResults() {
-        Pageable pageable = PageRequest.of(0, 20);
-        Page<Question> page = new PageImpl<>(List.of(testQuestion), pageable, 1);
+    void updateQuestion_shouldUpdateSuccessfully() {
+        when(questionRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(question));
+        when(topicRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(topic));
+        when(questionRepository.save(any(Question.class))).thenReturn(question);
 
-        when(questionRepository.findWithFilters(userId, null, null, null, null, pageable)).thenReturn(page);
+        QuestionRequest request = QuestionRequest.builder()
+                .topicId(1L)
+                .type(QuestionType.MULTIPLE_CHOICE)
+                .statement("Updated question?")
+                .difficulty(Difficulty.HARD)
+                .options(List.of(
+                        QuestionOptionRequest.builder().text("New A").isCorrect(true).build()
+                ))
+                .build();
 
-        Page<QuestionResponse> result = questionService.listQuestions(userId, null, null, null, null, pageable);
+        QuestionResponse result = questionService.updateQuestion(1L, 1L, request);
 
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).statement()).isEqualTo("What is the answer?");
-    }
-
-    @Test
-    @DisplayName("Should soft delete a question")
-    void deleteQuestion_shouldSetInactive() {
-        when(questionRepository.findByIdAndUserId(questionId, userId)).thenReturn(Optional.of(testQuestion));
-        when(questionRepository.save(any(Question.class))).thenReturn(testQuestion);
-
-        questionService.deleteQuestion(questionId, userId);
-
-        assertThat(testQuestion.getIsActive()).isFalse();
-        verify(questionRepository).save(testQuestion);
-    }
-
-    @Test
-    @DisplayName("Should import questions from JSON format")
-    void importQuestions_shouldParseAndSave() {
-        QuestionImportRequest.ImportItem item = new QuestionImportRequest.ImportItem(
-                "CF/88",
-                "a) Option A<br>b) Option B<br>c) Option C",
-                "a) Option A",
-                null,
-                null,
-                "Qual é a resposta?",
-                "Questão 1 :",
-                null
-        );
-        QuestionImportRequest request = new QuestionImportRequest(topicId, List.of(item));
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-        when(topicRepository.findByIdAndUserId(topicId, userId)).thenReturn(Optional.of(testTopic));
-        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> {
-            Question q = invocation.getArgument(0);
-            q.setId(UUID.randomUUID());
-            q.setCreatedAt(LocalDateTime.now());
-            q.setUpdatedAt(LocalDateTime.now());
-            return q;
-        });
-
-        List<QuestionResponse> result = questionService.importQuestions(userId, request);
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).statement()).isEqualTo("Qual é a resposta?");
-        verify(questionRepository, times(1)).save(any(Question.class));
+        assertThat(result).isNotNull();
+        verify(questionRepository).save(any(Question.class));
     }
 }

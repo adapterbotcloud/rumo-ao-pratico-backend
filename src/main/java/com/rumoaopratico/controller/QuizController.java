@@ -1,80 +1,57 @@
 package com.rumoaopratico.controller;
 
-import com.rumoaopratico.dto.quiz.QuizAnswerRequest;
-import com.rumoaopratico.dto.quiz.QuizAnswerResponse;
-import com.rumoaopratico.dto.quiz.QuizAttemptResponse;
-import com.rumoaopratico.dto.quiz.QuizGenerateRequest;
-import com.rumoaopratico.model.QuizMode;
-import com.rumoaopratico.security.SecurityUser;
+import com.rumoaopratico.dto.request.QuizAnswerRequest;
+import com.rumoaopratico.dto.request.QuizStartRequest;
+import com.rumoaopratico.dto.response.QuizAnswerResponse;
+import com.rumoaopratico.dto.response.QuizAttemptResponse;
+import com.rumoaopratico.dto.response.QuizResultResponse;
+import com.rumoaopratico.security.SecurityUtils;
 import com.rumoaopratico.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @RestController
-@RequestMapping("/quiz")
-@Tag(name = "Quiz", description = "Quiz attempt endpoints")
+@RequestMapping("/api/quiz")
+@RequiredArgsConstructor
+@Tag(name = "Quiz", description = "Quiz attempt and answer endpoints")
 public class QuizController {
 
     private final QuizService quizService;
 
-    public QuizController(QuizService quizService) {
-        this.quizService = quizService;
+    @PostMapping("/start")
+    @Operation(summary = "Start a new quiz attempt")
+    public ResponseEntity<QuizAttemptResponse> startQuiz(@Valid @RequestBody QuizStartRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(quizService.startQuiz(SecurityUtils.getCurrentUserId(), request));
     }
 
-    @PostMapping("/generate")
-    @Operation(summary = "Generate a new quiz")
-    public ResponseEntity<QuizAttemptResponse> generateQuiz(
-            @AuthenticationPrincipal SecurityUser user,
-            @Valid @RequestBody QuizGenerateRequest request) {
-        QuizAttemptResponse response = quizService.generateQuiz(user.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @GetMapping("/attempts")
-    @Operation(summary = "List user's quiz attempts")
-    public ResponseEntity<Page<QuizAttemptResponse>> listAttempts(
-            @AuthenticationPrincipal SecurityUser user,
-            @RequestParam(required = false) QuizMode mode,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<QuizAttemptResponse> attempts = quizService.listAttempts(user.getId(), mode, pageable);
-        return ResponseEntity.ok(attempts);
-    }
-
-    @GetMapping("/attempts/{id}")
+    @GetMapping("/{attemptId}")
     @Operation(summary = "Get quiz attempt details")
-    public ResponseEntity<QuizAttemptResponse> getAttempt(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal SecurityUser user) {
-        QuizAttemptResponse response = quizService.getAttemptById(id, user.getId());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<QuizAttemptResponse> getAttempt(@PathVariable Long attemptId) {
+        return ResponseEntity.ok(quizService.getAttempt(SecurityUtils.getCurrentUserId(), attemptId));
     }
 
-    @PostMapping("/attempts/{id}/answer")
-    @Operation(summary = "Submit an answer for a question in the quiz")
-    public ResponseEntity<QuizAnswerResponse> submitAnswer(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal SecurityUser user,
-            @Valid @RequestBody QuizAnswerRequest request) {
-        QuizAnswerResponse response = quizService.submitAnswer(id, user.getId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @PostMapping("/{attemptId}/answer")
+    @Operation(summary = "Submit an answer for a quiz question")
+    public ResponseEntity<QuizAnswerResponse> submitAnswer(@PathVariable Long attemptId,
+                                                            @Valid @RequestBody QuizAnswerRequest request) {
+        return ResponseEntity.ok(quizService.submitAnswer(SecurityUtils.getCurrentUserId(), attemptId, request));
     }
 
-    @PostMapping("/attempts/{id}/finish")
+    @PostMapping("/{attemptId}/finish")
     @Operation(summary = "Finish a quiz attempt")
-    public ResponseEntity<QuizAttemptResponse> finishAttempt(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal SecurityUser user) {
-        QuizAttemptResponse response = quizService.finishAttempt(id, user.getId());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<QuizResultResponse> finishQuiz(@PathVariable Long attemptId) {
+        return ResponseEntity.ok(quizService.finishQuiz(SecurityUtils.getCurrentUserId(), attemptId));
+    }
+
+    @GetMapping("/{attemptId}/result")
+    @Operation(summary = "Get quiz result")
+    public ResponseEntity<QuizResultResponse> getResult(@PathVariable Long attemptId) {
+        return ResponseEntity.ok(quizService.getResult(SecurityUtils.getCurrentUserId(), attemptId));
     }
 }

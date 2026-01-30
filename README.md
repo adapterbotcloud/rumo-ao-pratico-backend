@@ -1,308 +1,161 @@
-# 📚 Rumo ao Prático - Backend
+# 🚢 Rumo ao Prático - Backend
 
-> API REST para um sistema de estudo e quiz, construída com **Spring Boot 3.3** e **Java 21**. Permite criar questões, organizar por tópicos, gerar quizzes e acompanhar estatísticas de desempenho.
+Backend API for **Rumo ao Prático**, a quiz system designed for Brazilian Navy practical exam preparation.
 
----
+## Tech Stack
 
-## 🛠️ Stack Tecnológica
+- **Java 21** + **Spring Boot 3.3**
+- **PostgreSQL** with **Flyway** migrations
+- **JWT** authentication (access + refresh tokens)
+- **Swagger/OpenAPI** documentation
+- **Lombok** for boilerplate reduction
+- **Maven** build system
 
-| Camada | Tecnologia |
-|--------|-----------|
-| **Linguagem** | Java 21 |
-| **Framework** | Spring Boot 3.3.5 |
-| **Segurança** | Spring Security + JWT (jjwt 0.12.6) |
-| **Banco de Dados** | PostgreSQL 16 |
-| **ORM** | Spring Data JPA / Hibernate |
-| **Migrações** | Flyway |
-| **Documentação** | SpringDoc OpenAPI (Swagger UI) |
-| **Build** | Maven |
-| **Containers** | Docker & Docker Compose |
+## Architecture
 
----
+```
+src/main/java/com/rumoaopratico/
+├── config/          # Security, OpenAPI, CORS configuration
+├── controller/      # REST API endpoints
+├── dto/
+│   ├── request/     # Input DTOs with validation
+│   └── response/    # Output DTOs
+├── exception/       # Global exception handling
+├── model/           # JPA entities
+│   └── enums/       # Enums (QuestionType, Difficulty, QuizMode)
+├── repository/      # Spring Data JPA repositories
+├── security/        # JWT provider, filter, user principal
+└── service/         # Business logic layer
+```
 
-## 📋 Pré-requisitos
+## API Endpoints
 
-### Rodar com Docker (recomendado)
-- [Docker](https://docs.docker.com/get-docker/) 20+
-- [Docker Compose](https://docs.docker.com/compose/) v2+
+### Authentication (`/api/auth`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register new user |
+| POST | `/login` | Login with email/password |
+| POST | `/refresh` | Refresh access token |
+| POST | `/forgot-password` | Request password reset |
 
-### Rodar localmente
-- Java 21 (JDK)
+### Users (`/api/users`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/me` | Get current user profile |
+| PUT | `/me` | Update profile |
+| GET | `/me/stats` | Get user statistics |
+
+### Topics (`/api/topics`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List topics (paginated) |
+| GET | `/{id}` | Get topic by ID |
+| POST | `/` | Create topic |
+| PUT | `/{id}` | Update topic |
+| DELETE | `/{id}` | Delete topic |
+
+### Questions (`/api/questions`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List questions (paginated, filtered) |
+| GET | `/{id}` | Get question by ID |
+| POST | `/` | Create question with options |
+| PUT | `/{id}` | Update question |
+| DELETE | `/{id}` | Soft-delete question |
+
+### Quiz (`/api/quiz`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/start` | Start quiz attempt |
+| GET | `/{attemptId}` | Get attempt details |
+| POST | `/{attemptId}/answer` | Submit answer |
+| POST | `/{attemptId}/finish` | Finish quiz |
+| GET | `/{attemptId}/result` | Get quiz result |
+
+### History (`/api/history`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List quiz history (paginated) |
+| GET | `/{attemptId}` | Get detailed history |
+
+### Admin (`/api/admin`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/import-questions` | Import questions from JSON |
+
+## Running Locally
+
+### Prerequisites
+- Java 21+
+- PostgreSQL 15+
 - Maven 3.9+
-- PostgreSQL 16+
 
----
-
-## 🚀 Como Executar
-
-### 🐳 Com Docker Compose (modo mais fácil)
-
+### Database Setup
 ```bash
-# Clonar o repositório
-git clone https://github.com/CabraBot/rumo-ao-pratico-backend.git
-cd rumo-ao-pratico-backend
-
-# Subir tudo (banco + aplicação)
-docker compose up -d
-
-# Verificar logs
-docker compose logs -f app
+createdb rumo_pratico
 ```
 
-A API estará disponível em: `http://localhost:8080/api/v1`
-Swagger UI: `http://localhost:8080/api/v1/swagger-ui.html`
-
-### 💻 Localmente (desenvolvimento)
-
+### Run
 ```bash
-# 1. Subir apenas o PostgreSQL
-docker compose up -d db
-
-# 2. Configurar variáveis de ambiente (opcional, já tem defaults)
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_NAME=rumo_ao_pratico
-export DB_USERNAME=postgres
-export DB_PASSWORD=postgres
-
-# 3. Compilar e executar
+# With Maven
 mvn spring-boot:run
-```
 
-Ou compilar o JAR:
-
-```bash
+# Or build and run JAR
 mvn clean package -DskipTests
 java -jar target/rumo-ao-pratico-backend-1.0.0.jar
 ```
 
----
+### Docker
+```bash
+# Build image
+docker build -t rumo-ao-pratico-backend .
 
-## ⚙️ Variáveis de Ambiente
-
-| Variável | Default | Descrição |
-|----------|---------|-----------|
-| `DB_HOST` | `localhost` | Host do PostgreSQL |
-| `DB_PORT` | `5432` | Porta do PostgreSQL |
-| `DB_NAME` | `rumo_ao_pratico` | Nome do banco de dados |
-| `DB_USERNAME` | `postgres` | Usuário do banco |
-| `DB_PASSWORD` | `postgres` | Senha do banco |
-| `JWT_SECRET` | (base64 embutido) | Chave secreta para assinar tokens JWT |
-| `JWT_EXPIRATION` | `86400000` | Tempo de expiração do access token (ms) – 24h |
-| `JWT_REFRESH_EXPIRATION` | `604800000` | Tempo de expiração do refresh token (ms) – 7 dias |
-
----
-
-## 📡 Endpoints da API
-
-Todos os endpoints estão sob o prefixo `/api/v1`. Endpoints autenticados requerem o header:
-```
-Authorization: Bearer <token>
+# Run with Docker Compose (requires docker-compose.yml with PostgreSQL)
+docker run -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/rumo_pratico \
+  -e SPRING_DATASOURCE_USERNAME=rumo \
+  -e SPRING_DATASOURCE_PASSWORD=rumo_secret \
+  rumo-ao-pratico-backend
 ```
 
-### 🔐 Autenticação (`/auth`)
+## Environment Variables
 
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `POST` | `/auth/register` | Registrar novo usuário | ❌ |
-| `POST` | `/auth/login` | Login (retorna JWT) | ❌ |
-| `POST` | `/auth/refresh` | Renovar access token | ❌ |
-| `POST` | `/auth/forgot-password` | Recuperação de senha (mock) | ❌ |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://db:5432/rumo_pratico` | Database URL |
+| `SPRING_DATASOURCE_USERNAME` | `rumo` | Database username |
+| `SPRING_DATASOURCE_PASSWORD` | `rumo_secret` | Database password |
+| `JWT_SECRET` | (built-in) | JWT signing secret (change in production!) |
+| `JWT_ACCESS_EXPIRATION` | `900000` | Access token TTL (ms) - 15min |
+| `JWT_REFRESH_EXPIRATION` | `604800000` | Refresh token TTL (ms) - 7 days |
+| `SERVER_PORT` | `8080` | Server port |
 
-### 👤 Usuários (`/users`)
+## API Documentation
 
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `GET` | `/users/me` | Perfil do usuário autenticado | ✅ |
-| `PUT` | `/users/me` | Atualizar perfil | ✅ |
+Once running, access Swagger UI at:
+- **Swagger UI**: [http://localhost:8080/swagger](http://localhost:8080/swagger)
+- **OpenAPI JSON**: [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
 
-### 📂 Tópicos (`/topics`)
+## Default Admin User
 
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `GET` | `/topics` | Listar tópicos (paginado) | ✅ |
-| `POST` | `/topics` | Criar tópico | ✅ |
-| `GET` | `/topics/{id}` | Buscar tópico por ID | ✅ |
-| `PUT` | `/topics/{id}` | Atualizar tópico | ✅ |
-| `DELETE` | `/topics/{id}` | Excluir tópico | ✅ |
+The seed migration creates an admin user:
+- **Email**: `admin@rumo.com`
+- **Password**: `admin123`
 
-### ❓ Questões (`/questions`)
+## Security
 
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `GET` | `/questions` | Listar questões (filtros + paginação) | ✅ |
-| `POST` | `/questions` | Criar questão | ✅ |
-| `GET` | `/questions/{id}` | Buscar questão por ID | ✅ |
-| `PUT` | `/questions/{id}` | Atualizar questão | ✅ |
-| `DELETE` | `/questions/{id}` | Excluir questão (soft delete) | ✅ |
-| `POST` | `/questions/import` | Importar questões em lote (JSON) | ✅ |
+- JWT access tokens (15 min) + refresh tokens (7 days)
+- BCrypt password hashing
+- All endpoints except `/api/auth/**` require authentication
+- Users can only access their own data (enforced at service layer)
+- CORS configured for `localhost:3000` and `localhost:5173`
 
-**Filtros disponíveis em `GET /questions`:**
-- `topicId` – UUID do tópico
-- `type` – `MULTIPLE_CHOICE`, `TRUE_FALSE`, `FLASHCARD`, `COMMENTED_PHRASE`
-- `difficulty` – `EASY`, `MEDIUM`, `HARD`
-- `search` – busca textual no enunciado
-
-### 🎯 Quiz (`/quiz`)
-
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `POST` | `/quiz/generate` | Gerar novo quiz | ✅ |
-| `GET` | `/quiz/attempts` | Listar tentativas (paginado) | ✅ |
-| `GET` | `/quiz/attempts/{id}` | Detalhes de uma tentativa | ✅ |
-| `POST` | `/quiz/attempts/{id}/answer` | Responder uma questão do quiz | ✅ |
-| `POST` | `/quiz/attempts/{id}/finish` | Finalizar tentativa | ✅ |
-
-**Modos de quiz:** `EVALUATION` (avaliação) | `STUDY` (estudo)
-
-### 📊 Estatísticas (`/stats`)
-
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| `GET` | `/stats/dashboard` | Dashboard com estatísticas gerais | ✅ |
-
----
-
-## 🗄️ Modelo de Dados
-
-```
-users
- ├── topics (hierárquico, com parent_id)
- │    └── questions
- │         └── question_options
- ├── quiz_attempts
- │    └── quiz_answers
-```
-
-### Tipos de Questão
-- **MULTIPLE_CHOICE** – Múltipla escolha com opções
-- **TRUE_FALSE** – Verdadeiro ou Falso
-- **FLASHCARD** – Cartão de memorização
-- **COMMENTED_PHRASE** – Frase comentada
-
-### Níveis de Dificuldade
-- **EASY** – Fácil
-- **MEDIUM** – Médio
-- **HARD** – Difícil
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-src/main/java/com/rumoaopratico/
-├── config/                   # Configurações (Security, CORS, Swagger, Jackson)
-│   ├── CorsConfig.java
-│   ├── JacksonConfig.java
-│   ├── SecurityConfig.java
-│   └── SwaggerConfig.java
-├── controller/               # Controllers REST
-│   ├── AuthController.java
-│   ├── QuestionController.java
-│   ├── QuizController.java
-│   ├── StatsController.java
-│   ├── TopicController.java
-│   └── UserController.java
-├── dto/                      # Data Transfer Objects
-│   ├── auth/                 # Login, Register, Token, Refresh, ForgotPassword
-│   ├── question/             # Request, Response, Option, Import
-│   ├── quiz/                 # Generate, Answer, Attempt
-│   ├── stats/                # DashboardStats
-│   ├── topic/                # Request, Response
-│   └── user/                 # Update, Response
-├── exception/                # Exceções customizadas + handler global
-│   ├── BadRequestException.java
-│   ├── ErrorResponse.java
-│   ├── GlobalExceptionHandler.java
-│   ├── ResourceNotFoundException.java
-│   └── UnauthorizedException.java
-├── model/                    # Entidades JPA
-│   ├── Difficulty.java
-│   ├── Question.java
-│   ├── QuestionOption.java
-│   ├── QuestionType.java
-│   ├── QuizAnswer.java
-│   ├── QuizAttempt.java
-│   ├── QuizMode.java
-│   ├── Topic.java
-│   └── User.java
-├── repository/               # Spring Data JPA Repositories
-│   ├── QuestionOptionRepository.java
-│   ├── QuestionRepository.java
-│   ├── QuizAnswerRepository.java
-│   ├── QuizAttemptRepository.java
-│   ├── TopicRepository.java
-│   └── UserRepository.java
-├── security/                 # JWT + Spring Security
-│   ├── JwtAuthenticationFilter.java
-│   ├── JwtTokenProvider.java
-│   ├── SecurityUser.java
-│   └── UserDetailsServiceImpl.java
-├── service/                  # Lógica de negócio
-│   ├── AuthService.java
-│   ├── QuestionService.java
-│   ├── QuizService.java
-│   ├── StatsService.java
-│   ├── TopicService.java
-│   └── UserService.java
-└── RumoAoPraticoApplication.java
-
-src/main/resources/
-├── application.yml           # Configuração principal
-└── db/migration/
-    ├── V1__create_tables.sql # Criação das tabelas
-    └── V2__seed_data.sql     # Dados iniciais
-
-src/test/
-├── java/com/rumoaopratico/
-│   ├── RumoAoPraticoApplicationTests.java
-│   └── service/
-│       ├── AuthServiceTest.java
-│       └── QuestionServiceTest.java
-└── resources/
-    └── application-test.yml  # Config de testes (H2)
-```
-
----
-
-## 🧪 Testes
+## Testing
 
 ```bash
-# Executar testes (usa H2 em memória)
 mvn test
-
-# Com cobertura
-mvn test jacoco:report
 ```
 
----
+## License
 
-## 📖 Documentação da API (Swagger)
-
-Com a aplicação rodando, acesse:
-
-- **Swagger UI:** http://localhost:8080/api/v1/swagger-ui.html
-- **OpenAPI JSON:** http://localhost:8080/api/v1/api-docs
-
-Para testar endpoints autenticados no Swagger:
-1. Use `POST /auth/register` ou `POST /auth/login` para obter um token
-2. Clique em "Authorize" (🔒) no topo da página
-3. Cole o token no formato: `Bearer <seu-token>`
-
----
-
-## 🔒 Segurança
-
-- Senhas são hasheadas com **BCrypt**
-- Autenticação via **JWT** (JSON Web Tokens)
-- Access Token expira em **24 horas** (configurável)
-- Refresh Token expira em **7 dias** (configurável)
-- Rotas públicas: `/auth/**`, Swagger UI, health checks
-- Todas as outras rotas requerem token válido
-- Dados isolados por usuário (multi-tenant por design)
-
----
-
-## 📜 Licença
-
-Este projeto é de uso privado/educacional.
+Private - All rights reserved.

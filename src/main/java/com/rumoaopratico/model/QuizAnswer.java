@@ -2,26 +2,26 @@ package com.rumoaopratico.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 @Entity
 @Table(name = "quiz_answers")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@EqualsAndHashCode(exclude = {"attempt", "question"})
-@ToString(exclude = {"attempt", "question"})
+@ToString(exclude = "attempt")
+@EqualsAndHashCode(exclude = "attempt")
 public class QuizAnswer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attempt_id", nullable = false)
@@ -35,11 +35,10 @@ public class QuizAnswer {
     @Column(name = "user_answer_json", columnDefinition = "jsonb")
     private Map<String, Object> userAnswerJson;
 
-    @Column(name = "is_correct", nullable = false)
-    @Builder.Default
-    private Boolean isCorrect = false;
+    @Column(name = "is_correct")
+    private Boolean isCorrect;
 
-    @Column(name = "answered_at", nullable = false)
-    @Builder.Default
-    private LocalDateTime answeredAt = LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "answered_at", updatable = false)
+    private LocalDateTime answeredAt;
 }

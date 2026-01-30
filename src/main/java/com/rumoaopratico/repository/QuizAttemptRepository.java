@@ -1,7 +1,6 @@
 package com.rumoaopratico.repository;
 
 import com.rumoaopratico.model.QuizAttempt;
-import com.rumoaopratico.model.QuizMode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,28 +8,29 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> {
+public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> {
 
-    Optional<QuizAttempt> findByIdAndUserId(UUID id, UUID userId);
+    Optional<QuizAttempt> findByIdAndUserId(Long id, Long userId);
 
-    @Query("SELECT a FROM QuizAttempt a WHERE a.user.id = :userId " +
-            "AND (:mode IS NULL OR a.mode = :mode) " +
-            "ORDER BY a.createdAt DESC")
-    Page<QuizAttempt> findByUserIdWithFilters(
-            @Param("userId") UUID userId,
-            @Param("mode") QuizMode mode,
-            Pageable pageable
-    );
+    @Query("SELECT qa FROM QuizAttempt qa WHERE qa.user.id = :userId " +
+           "AND (:startDate IS NULL OR qa.startedAt >= :startDate) " +
+           "AND (:endDate IS NULL OR qa.startedAt <= :endDate) " +
+           "ORDER BY qa.startedAt DESC")
+    Page<QuizAttempt> findByUserIdFiltered(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable);
 
-    long countByUserId(UUID userId);
+    long countByUserId(Long userId);
 
-    @Query("SELECT COALESCE(SUM(a.correctCount), 0) FROM QuizAttempt a WHERE a.user.id = :userId AND a.finishedAt IS NOT NULL")
-    long sumCorrectCountByUserId(@Param("userId") UUID userId);
+    @Query("SELECT COALESCE(SUM(qa.correctCount), 0) FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.finishedAt IS NOT NULL")
+    long sumCorrectCountByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT COALESCE(SUM(a.totalQuestions), 0) FROM QuizAttempt a WHERE a.user.id = :userId AND a.finishedAt IS NOT NULL")
-    long sumTotalQuestionsByUserId(@Param("userId") UUID userId);
+    @Query("SELECT COALESCE(SUM(qa.totalQuestions), 0) FROM QuizAttempt qa WHERE qa.user.id = :userId AND qa.finishedAt IS NOT NULL")
+    long sumTotalQuestionsByUserId(@Param("userId") Long userId);
 }

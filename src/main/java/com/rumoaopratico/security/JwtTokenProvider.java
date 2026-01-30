@@ -1,76 +1,76 @@
 package com.rumoaopratico.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.UUID;
 
+@Slf4j
 @Component
 public class JwtTokenProvider {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
-    private final SecretKey key;
-    private final long accessTokenExpiration;
-    private final long refreshTokenExpiration;
+    @Value("${jwt.access-expiration}")
+    private long accessExpiration;
 
-    public JwtTokenProvider(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long accessTokenExpiration,
-            @Value("${jwt.refresh-expiration}") long refreshTokenExpiration
-    ) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        this.accessTokenExpiration = accessTokenExpiration;
-        this.refreshTokenExpiration = refreshTokenExpiration;
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpiration;
+
+    private SecretKey key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(UUID userId, String email) {
-        return generateToken(userId, email, accessTokenExpiration, "access");
+    public String generateAccessToken(Long userId, String email) {
+        return generateToken(userId, email, accessExpiration, "access");
     }
 
-    public String generateRefreshToken(UUID userId, String email) {
-        return generateToken(userId, email, refreshTokenExpiration, "refresh");
+    public String generateRefreshToken(Long userId, String email) {
+        return generateToken(userId, email, refreshExpiration, "refresh");
     }
 
-    private String generateToken(UUID userId, String email, long expiration, String tokenType) {
+    private String generateToken(Long userId, String email, long expiration, String type) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
-                .claim("type", tokenType)
+                .claim("type", type)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
                 .compact();
     }
 
-    public UUID getUserIdFromToken(String token) {
-        Claims claims = parseToken(token);
-        return UUID.fromString(claims.getSubject());
+    public Long getUserIdFromToken(String token) {
+        Claims claims = parseClaims(token);
+        return Long.parseLong(claims.getSubject());
     }
 
     public String getEmailFromToken(String token) {
-        Claims claims = parseToken(token);
+        Claims claims = parseClaims(token);
         return claims.get("email", String.class);
     }
 
     public String getTokenType(String token) {
-        Claims claims = parseToken(token);
+        Claims claims = parseClaims(token);
         return claims.get("type", String.class);
     }
 
     public boolean validateToken(String token) {
         try {
-            parseToken(token);
+            parseClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("Invalid JWT token: {}", e.getMessage());
@@ -78,11 +78,11 @@ public class JwtTokenProvider {
         }
     }
 
-    public long getAccessTokenExpiration() {
-        return accessTokenExpiration;
+    public long getAccessExpiration() {
+        return accessExpiration;
     }
 
-    private Claims parseToken(String token) {
+    private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
