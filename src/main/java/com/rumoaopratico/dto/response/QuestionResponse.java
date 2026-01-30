@@ -55,6 +55,15 @@ public class QuestionResponse {
                 .options(buildOptionsWithLabels(q))
                 .build();
 
+        // Populate type-specific fields from stored data
+        if (q.getType() == QuestionType.FLASHCARD) {
+            response.setFrontContent(q.getStatement());
+            response.setBackContent(q.getExplanation());
+        } else if (q.getType() == QuestionType.COMMENTED_PHRASE) {
+            response.setPhrase(q.getStatement());
+            response.setCommentary(q.getExplanation());
+        }
+
         // Compute correctAnswer for TRUE_FALSE and COMMENTED_PHRASE
         if (q.getType() == QuestionType.TRUE_FALSE || q.getType() == QuestionType.COMMENTED_PHRASE) {
             if (q.getOptions() != null && !q.getOptions().isEmpty()) {

@@ -114,12 +114,23 @@ public class QuestionService {
         Topic topic = topicRepository.findById(request.getTopicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", request.getTopicId()));
 
+        // Map type-specific fields to storage columns
+        String statementValue = request.getStatement();
+        String explanationValue = request.getExplanation();
+        if (request.getType() == QuestionType.FLASHCARD) {
+            if (request.getFrontContent() != null) statementValue = request.getFrontContent();
+            if (request.getBackContent() != null) explanationValue = request.getBackContent();
+        } else if (request.getType() == QuestionType.COMMENTED_PHRASE) {
+            if (request.getPhrase() != null) statementValue = request.getPhrase();
+            if (request.getCommentary() != null) explanationValue = request.getCommentary();
+        }
+
         Question question = Question.builder()
                 .user(user)
                 .topic(topic)
                 .type(request.getType())
-                .statement(request.getStatement())
-                .explanation(request.getExplanation())
+                .statement(statementValue)
+                .explanation(explanationValue)
                 .bibliography(request.getBibliography())
                 .difficulty(request.getDifficulty())
                 .tags(request.getTags())
@@ -173,10 +184,21 @@ public class QuestionService {
         Topic topic = topicRepository.findById(request.getTopicId())
                 .orElseThrow(() -> new ResourceNotFoundException("Topic", request.getTopicId()));
 
+        // Map type-specific fields to storage columns
+        String statementValue = request.getStatement();
+        String explanationValue = request.getExplanation();
+        if (request.getType() == QuestionType.FLASHCARD) {
+            if (request.getFrontContent() != null) statementValue = request.getFrontContent();
+            if (request.getBackContent() != null) explanationValue = request.getBackContent();
+        } else if (request.getType() == QuestionType.COMMENTED_PHRASE) {
+            if (request.getPhrase() != null) statementValue = request.getPhrase();
+            if (request.getCommentary() != null) explanationValue = request.getCommentary();
+        }
+
         question.setTopic(topic);
         question.setType(request.getType());
-        question.setStatement(request.getStatement());
-        question.setExplanation(request.getExplanation());
+        question.setStatement(statementValue);
+        question.setExplanation(explanationValue);
         question.setBibliography(request.getBibliography());
         question.setDifficulty(request.getDifficulty());
         question.setTags(request.getTags());
